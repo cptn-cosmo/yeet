@@ -120,6 +120,29 @@ class ServerConfig:
             port=int(data.get('port', 49122)),
         )
 
+@dataclass
+class WebhookConfig:
+    enabled: bool = False
+    first_hit_url: str = ""
+    first_hit_method: str = "GET"
+    last_hit_url: str = ""
+    last_hit_method: str = "GET"
+    settling_delay: float = 2.0  # Seconds of silence after impact before calling last_hit_url
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'WebhookConfig':
+        return cls(
+            enabled=bool(data.get('enabled', False)),
+            first_hit_url=data.get('first_hit_url', ''),
+            first_hit_method=data.get('first_hit_method', 'GET').upper(),
+            last_hit_url=data.get('last_hit_url', ''),
+            last_hit_method=data.get('last_hit_method', 'GET').upper(),
+            settling_delay=float(data.get('settling_delay', 2.0)),
+        )
+
 def get_default_targets() -> List[Target]:
     return [
         Target(

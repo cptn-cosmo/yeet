@@ -148,6 +148,7 @@ class YeetWindow(Adw.ApplicationWindow):
         self._update_server_badge()
         count = self.server_daemon.get_connected_count()
         self.server_view.update_connected_clients(count)
+        self.server_view.update_collision_count(self.server_daemon.total_collisions)
         return True
 
     def _on_copy_obs_url(self, btn):

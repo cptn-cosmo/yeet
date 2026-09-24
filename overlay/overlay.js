@@ -33,8 +33,9 @@
   const imageCache = new Map();
   const audioBufferCache = new Map();
 
-  // Active Throwables Tracking
+  // Active Throwables & Particles Tracking
   const activeThrowables = [];
+  const activeParticles = [];
   let targetBodies = [];
 
   // Web Audio Context & Dynamic Limiter
@@ -324,6 +325,23 @@
               data.item.sound_volume ?? 0.8,
               data.item.pitch_randomness ?? 0.2
             );
+
+            // Trigger visual impact burst
+            spawnImpactBurst(throwableBody.position.x, throwableBody.position.y);
+
+            // Notify daemon server via WebSocket
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({
+                  type: 'collision_event',
+                  target_id: targetBody.yeetTarget ? targetBody.yeetTarget.id : 'target',
+                  target_name: targetBody.yeetTarget ? targetBody.yeetTarget.name : 'Target',
+                  item_id: data.item.id,
+                  item_name: data.item.name,
+                  timestamp: Date.now()
+                }));
+              } catch (e) {}
+            }
           }
         }
       }
@@ -584,6 +602,24 @@
     activeThrowables.length = 0;
   }
 
+  function spawnImpactBurst(x, y) {
+    const colors = ['#f6d32d', '#ff7800', '#e01b24', '#ffffff', '#62a0ea'];
+    const count = 12;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = 2.5 + Math.random() * 4.5;
+      activeParticles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 2.5 + Math.random() * 3.5,
+        alpha: 1.0,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    }
+  }
+
   // --- Rendering Loop ---
   function render() {
     requestAnimationFrame(render);
@@ -673,6 +709,29 @@
         ctx.fill();
       }
 
+      ctx.restore();
+    }
+
+    // 3. Draw Impact Burst Particles
+    for (let i = activeParticles.length - 1; i >= 0; i--) {
+      const p = activeParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.93;
+      p.vy *= 0.93;
+      p.alpha -= 0.035;
+
+      if (p.alpha <= 0) {
+        activeParticles.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
   }
@@ -774,6 +833,31 @@
           setTimeout(() => {
             spawnItem(item, direction, force, spread);
           }, i * 35);
+        }
+        break;
+      }
+
+      case 'collision': {
+        // Direct collision event triggered via REST API (e.g. GET /api/v1/collision)
+        let targetBody = null;
+        if (msg.target_id) {
+          targetBody = targetBodies.find(b => b.yeetTarget && (
+            b.yeetTarget.id === msg.target_id ||
+            (b.yeetTarget.name && b.yeetTarget.name.toLowerCase() === msg.target_id.toLowerCase())
+          ));
+        }
+        if (!targetBody && targetBodies.length > 0) {
+          targetBody = targetBodies[0];
+        }
+
+        const sound = msg.sound || (msg.item_data && msg.item_data.sound_effect) || 'bonk';
+        const volume = msg.volume ?? (msg.item_data && msg.item_data.sound_volume) ?? 0.85;
+        const pitchRand = msg.pitch_randomness ?? (msg.item_data && msg.item_data.pitch_randomness) ?? 0.25;
+
+        playCollisionSound(sound, volume, pitchRand);
+
+        if (targetBody) {
+          spawnImpactBurst(targetBody.position.x, targetBody.position.y);
         }
         break;
       }

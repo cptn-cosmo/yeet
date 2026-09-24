@@ -10,7 +10,10 @@ import random
 import logging
 import asyncio
 import threading
+import urllib.parse
 from typing import Set, Dict, Any, Optional, Callable
+from collections import deque
+import aiohttp
 from aiohttp import web, WSMsgType
 
 from .config import ConfigManager
@@ -19,11 +22,27 @@ from .models import ThrowableItem
 logger = logging.getLogger("yeet.server")
 
 class ServerDaemon:
-    def __init__(self, config_manager: ConfigManager, base_dir: str = None, on_throw_event: Optional[Callable[[Dict[str, Any]], None]] = None):
+    def __init__(self, config_manager: ConfigManager, base_dir: str = None, on_throw_event: Optional[Callable[[Dict[str, Any]], None]] = None, on_collision_event: Optional[Callable[[Dict[str, Any]], None]] = None):
         self.config_manager = config_manager
         self.on_throw_event = on_throw_event
+        self.on_collision_event = on_collision_event
         self.start_time = time.time()
         self.connected_ws: Set[web.WebSocketResponse] = set()
+
+        # Collision Event Statistics & History
+        self.total_collisions: int = 0
+        self.collisions_by_target: Dict[str, int] = {}
+        self.collisions_by_item: Dict[str, int] = {}
+        self.recent_collisions: deque = deque(maxlen=50)
+
+        # Outbound Webhook & Barrage First/Last Hit State
+        self._barrage_active: bool = False
+        self._barrage_hits: int = 0
+        self._barrage_first_target: str = ""
+        self._barrage_last_target: str = ""
+        self._barrage_last_item: str = ""
+        self._barrage_timer_task: Optional[asyncio.Task] = None
+        self.http_client: Optional[aiohttp.ClientSession] = None
 
         # Locate assets and overlay directories
         if not base_dir:
@@ -60,6 +79,120 @@ class ServerDaemon:
         }
         return web.Response(status=204, headers=headers)
 
+    def record_collision(self, target_id: str, target_name: str, item_id: str, item_name: str, source: str = "physics"):
+        self.total_collisions += 1
+        self.collisions_by_target[target_name] = self.collisions_by_target.get(target_name, 0) + 1
+        self.collisions_by_item[item_id] = self.collisions_by_item.get(item_id, 0) + 1
+        collision_entry = {
+            "id": self.total_collisions,
+            "target_id": target_id,
+            "target_name": target_name,
+            "item_id": item_id,
+            "item_name": item_name,
+            "source": source,
+            "timestamp": time.time(),
+        }
+        self.recent_collisions.append(collision_entry)
+
+        # Trigger first/last hit barrage tracking
+        if self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(self._handle_barrage_hit(target_name, item_name), self.loop)
+
+        if self.on_collision_event:
+            try:
+                self.on_collision_event(collision_entry)
+            except Exception as e:
+                logger.error(f"Error in on_collision_event callback: {e}")
+
+    async def _dispatch_webhook(self, event_type: str, target_name: str, item_name: str, hits: int):
+        if not self._is_running:
+            return
+        cfg = self.config_manager.webhooks
+        if not cfg.enabled:
+            return
+
+        if event_type == "first_hit":
+            url_template = cfg.first_hit_url
+            method = cfg.first_hit_method or "GET"
+        else:
+            url_template = cfg.last_hit_url
+            method = cfg.last_hit_method or "GET"
+
+        if not url_template or not url_template.strip():
+            return
+
+        # String placeholder substitution
+        url = url_template.replace("{target}", urllib.parse.quote_plus(target_name))
+        url = url.replace("{item}", urllib.parse.quote_plus(item_name))
+        url = url.replace("{hits}", str(hits))
+        url = url.replace("{event}", event_type)
+
+        logger.info(f"Dispatching {event_type} webhook to {url} (method: {method})")
+
+        payload = {
+            "event": event_type,
+            "target_name": target_name,
+            "item_name": item_name,
+            "barrage_hits": hits,
+            "timestamp": time.time()
+        }
+
+        try:
+            if self.http_client and self.http_client.closed:
+                return
+            session = self.http_client or aiohttp.ClientSession()
+            close_session = (session != self.http_client)
+            try:
+                if method.upper() == "POST":
+                    async with session.post(url, json=payload, timeout=4.0) as resp:
+                        logger.info(f"Webhook {event_type} POST {url} returned status {resp.status}")
+                else:
+                    async with session.get(url, timeout=4.0) as resp:
+                        logger.info(f"Webhook {event_type} GET {url} returned status {resp.status}")
+            finally:
+                if close_session:
+                    await session.close()
+        except Exception as e:
+            logger.warning(f"Failed to dispatch {event_type} webhook to {url}: {e}")
+
+    async def _handle_barrage_hit(self, target_name: str, item_name: str):
+        settling_delay = self.config_manager.webhooks.settling_delay or 2.0
+
+        if not self._barrage_active:
+            # FIRST HIT OF BARRAGE
+            self._barrage_active = True
+            self._barrage_hits = 1
+            self._barrage_first_target = target_name
+            self._barrage_last_target = target_name
+            self._barrage_last_item = item_name
+
+            await self._dispatch_webhook("first_hit", target_name, item_name, self._barrage_hits)
+        else:
+            # Continuing barrage
+            self._barrage_hits += 1
+            self._barrage_last_target = target_name
+            self._barrage_last_item = item_name
+
+        # Cancel previous settling countdown if running
+        if self._barrage_timer_task and not self._barrage_timer_task.done():
+            self._barrage_timer_task.cancel()
+
+        async def _settling_worker():
+            try:
+                await asyncio.sleep(settling_delay)
+                # LAST HIT - Barrage settled!
+                hits = self._barrage_hits
+                tgt = self._barrage_last_target
+                it = self._barrage_last_item
+                self._barrage_active = False
+                self._barrage_hits = 0
+
+                await self._dispatch_webhook("last_hit", tgt, it, hits)
+            except asyncio.CancelledError:
+                pass
+
+        self._barrage_timer_task = asyncio.create_task(_settling_worker())
+
     async def handle_status(self, request: web.Request) -> web.Response:
         data = {
             "status": "running",
@@ -67,6 +200,7 @@ class ServerDaemon:
             "connected_overlays": len(self.connected_ws),
             "active_targets": len(self.config_manager.targets),
             "total_items": len(self.config_manager.items),
+            "total_collisions": self.total_collisions,
             "host": self.config_manager.server.host,
             "port": self.config_manager.server.port,
         }
@@ -196,6 +330,105 @@ class ServerDaemon:
         await self.broadcast({"type": "clear"})
         return web.json_response({"status": "ok", "message": "Cleared all items"}, headers={"Access-Control-Allow-Origin": "*"})
 
+    async def handle_collision(self, request: web.Request) -> web.Response:
+        """Trigger an instant collision event on a target via GET or POST."""
+        query = request.query
+        body = {}
+        if request.can_read_body:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+
+        target_key = query.get("target", query.get("target_id", body.get("target", body.get("target_id"))))
+        item_key = query.get("item", body.get("item"))
+        sound = query.get("sound", body.get("sound"))
+        volume_val = query.get("volume", body.get("volume"))
+
+        # Resolve target (match ID or name, fallback to primary target)
+        target = None
+        if target_key:
+            for t in self.config_manager.targets:
+                if t.id.lower() == target_key.lower() or t.name.lower() == target_key.lower():
+                    target = t
+                    break
+        if not target and self.config_manager.targets:
+            target = self.config_manager.targets[0]
+
+        # Resolve item (match ID or name, fallback to first item or random)
+        item = None
+        if item_key:
+            for it in self.config_manager.items.values():
+                if it.id.lower() == item_key.lower() or it.name.lower() == item_key.lower():
+                    item = it
+                    break
+        if not item and self.config_manager.items:
+            item = list(self.config_manager.items.values())[0]
+
+        target_id = target.id if target else "target"
+        target_name = target.name if target else "Target"
+        item_id = item.id if item else "item"
+        item_name = item.name if item else "Item"
+        sound_effect = sound or (item.sound_effect if item else "bonk")
+
+        try:
+            volume = float(volume_val) if volume_val is not None else (item.sound_volume if item else 0.85)
+        except (ValueError, TypeError):
+            volume = 0.85
+
+        pitch_rand = item.pitch_randomness if item else 0.25
+
+        # Record collision statistic
+        self.record_collision(target_id, target_name, item_id, item_name, source="api")
+
+        # Broadcast direct collision impact to OBS overlays
+        event_payload = {
+            "type": "collision",
+            "target_id": target_id,
+            "target_name": target_name,
+            "item_id": item_id,
+            "item_name": item_name,
+            "item_data": item.to_dict() if item else None,
+            "sound": sound_effect,
+            "volume": volume,
+            "pitch_randomness": pitch_rand,
+        }
+        await self.broadcast(event_payload)
+
+        return web.json_response({
+            "status": "ok",
+            "message": f"Collision triggered on {target_name} with {item_name}",
+            "target": target_id,
+            "target_name": target_name,
+            "item": item_id,
+            "item_name": item_name,
+            "sound": sound_effect,
+            "total_collisions": self.total_collisions,
+        }, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_get_collisions(self, request: web.Request) -> web.Response:
+        """Query collision statistics or trigger collision if parameters provided."""
+        # If trigger parameters are supplied in GET /api/v1/collisions, treat as trigger
+        if "item" in request.query or "target" in request.query or request.query.get("trigger") == "true":
+            return await self.handle_collision(request)
+
+        data = {
+            "status": "ok",
+            "total_collisions": self.total_collisions,
+            "by_target": dict(self.collisions_by_target),
+            "by_item": dict(self.collisions_by_item),
+            "recent": list(self.recent_collisions)
+        }
+        return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_reset_collisions(self, request: web.Request) -> web.Response:
+        """Reset collision counter and history."""
+        self.total_collisions = 0
+        self.collisions_by_target.clear()
+        self.collisions_by_item.clear()
+        self.recent_collisions.clear()
+        return web.json_response({"status": "ok", "message": "Collision statistics reset to 0"}, headers={"Access-Control-Allow-Origin": "*"})
+
     # --- WebSocket Handler ---
     async def handle_ws(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=25.0)
@@ -216,8 +449,17 @@ class ServerDaemon:
                 if msg.type == WSMsgType.TEXT:
                     try:
                         data = json.loads(msg.data)
-                        if data.get("type") == "ping":
+                        msg_type = data.get("type")
+                        if msg_type == "ping":
                             await ws.send_json({"type": "pong"})
+                        elif msg_type == "collision_event":
+                            self.record_collision(
+                                target_id=data.get("target_id", "target"),
+                                target_name=data.get("target_name", "Target"),
+                                item_id=data.get("item_id", "unknown"),
+                                item_name=data.get("item_name", "Item"),
+                                source="physics"
+                            )
                     except Exception as e:
                         logger.warning(f"Invalid message from WS client: {e}")
                 elif msg.type == WSMsgType.ERROR:
@@ -275,6 +517,44 @@ class ServerDaemon:
             "config": self.config_manager.to_client_dict()
         })
 
+    async def handle_get_webhooks(self, request: web.Request) -> web.Response:
+        return web.json_response({
+            "status": "ok",
+            "webhooks": self.config_manager.webhooks.to_dict()
+        }, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_post_webhooks(self, request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+            from .models import WebhookConfig
+            self.config_manager.webhooks = WebhookConfig.from_dict(body)
+            self.config_manager.save()
+            return web.json_response({
+                "status": "ok",
+                "webhooks": self.config_manager.webhooks.to_dict()
+            }, headers={"Access-Control-Allow-Origin": "*"})
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_test_webhook(self, request: web.Request) -> web.Response:
+        query = request.query
+        event_type = query.get("event", query.get("type", "first_hit"))
+        if event_type in ["first", "1"]:
+            event_type = "first_hit"
+        elif event_type in ["last", "end"]:
+            event_type = "last_hit"
+
+        target_name = self.config_manager.targets[0].name if self.config_manager.targets else "VTuber Head"
+        item_name = "Beach Ball"
+        await self._dispatch_webhook(event_type, target_name, item_name, hits=1)
+
+        return web.json_response({
+            "status": "ok",
+            "message": f"Test {event_type} webhook dispatched",
+            "event": event_type,
+            "webhooks_enabled": self.config_manager.webhooks.enabled,
+        }, headers={"Access-Control-Allow-Origin": "*"})
+
     # --- Server Lifecycle & Daemon Thread ---
     def _create_app(self) -> web.Application:
         app = web.Application()
@@ -284,6 +564,20 @@ class ServerDaemon:
         app.router.add_get("/api/v1/throw", self.handle_throw)
         app.router.add_post("/api/v1/clear", self.handle_clear)
         app.router.add_get("/api/v1/clear", self.handle_clear)
+        # Collision API Routes (supports GET and POST for direct hits and stats)
+        app.router.add_get("/api/v1/collision", self.handle_collision)
+        app.router.add_post("/api/v1/collision", self.handle_collision)
+        app.router.add_get("/api/v1/collisions", self.handle_get_collisions)
+        app.router.add_post("/api/v1/collisions", self.handle_collision)
+        app.router.add_get("/api/v1/collisions/reset", self.handle_reset_collisions)
+        app.router.add_post("/api/v1/collisions/reset", self.handle_reset_collisions)
+
+        # Webhook Configuration & Testing Routes
+        app.router.add_get("/api/v1/webhooks", self.handle_get_webhooks)
+        app.router.add_post("/api/v1/webhooks", self.handle_post_webhooks)
+        app.router.add_get("/api/v1/webhooks/test", self.handle_test_webhook)
+        app.router.add_post("/api/v1/webhooks/test", self.handle_test_webhook)
+
         app.router.add_get("/api/v1/items", self.handle_get_items)
         app.router.add_get("/api/v1/targets", self.handle_get_targets)
         app.router.add_post("/api/v1/targets", self.handle_post_targets)
@@ -318,6 +612,11 @@ class ServerDaemon:
         self.site = web.TCPSite(self.runner, host, port)
         self.loop.run_until_complete(self.site.start())
 
+        async def _create_http_client():
+            return aiohttp.ClientSession()
+
+        self.http_client = self.loop.run_until_complete(_create_http_client())
+
         logger.info(f"Yeet server daemon running at http://{host}:{port}/")
         self._is_running = True
 
@@ -325,6 +624,8 @@ class ServerDaemon:
             self.loop.run_forever()
         finally:
             self._is_running = False
+            if self.http_client:
+                self.loop.run_until_complete(self.http_client.close())
             self.loop.run_until_complete(self.runner.cleanup())
             self.loop.close()
             logger.info("Yeet server daemon stopped.")
@@ -338,6 +639,8 @@ class ServerDaemon:
     def stop(self):
         if not self._is_running or not self.loop:
             return
+        if self._barrage_timer_task and not self._barrage_timer_task.done():
+            self.loop.call_soon_threadsafe(self._barrage_timer_task.cancel)
         self.loop.call_soon_threadsafe(self.loop.stop)
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=2.0)

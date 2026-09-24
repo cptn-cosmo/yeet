@@ -7,7 +7,7 @@ import os
 import json
 import logging
 from typing import List, Dict, Any, Callable
-from .models import Target, ThrowableItem, PhysicsConfig, ServerConfig, get_default_targets, get_default_items
+from .models import Target, ThrowableItem, PhysicsConfig, ServerConfig, WebhookConfig, get_default_targets, get_default_items
 
 logger = logging.getLogger("yeet.config")
 
@@ -25,6 +25,7 @@ class ConfigManager:
         self.items: Dict[str, ThrowableItem] = {}
         self.physics: PhysicsConfig = PhysicsConfig()
         self.server: ServerConfig = ServerConfig()
+        self.webhooks: WebhookConfig = WebhookConfig()
         self._change_listeners: List[Callable[[], None]] = []
 
         self.load()
@@ -69,6 +70,7 @@ class ConfigManager:
 
             self.physics = PhysicsConfig.from_dict(data.get("physics", {}))
             self.server = ServerConfig.from_dict(data.get("server", {}))
+            self.webhooks = WebhookConfig.from_dict(data.get("webhooks", {}))
             logger.info(f"Loaded configuration from {self.config_path}")
         except Exception as e:
             logger.error(f"Failed to load config from {self.config_path}: {e}. Falling back to defaults.")
@@ -76,6 +78,7 @@ class ConfigManager:
             self.items = get_default_items()
             self.physics = PhysicsConfig()
             self.server = ServerConfig()
+            self.webhooks = WebhookConfig()
 
     def save(self):
         data = {
@@ -83,6 +86,7 @@ class ConfigManager:
             "items": {k: v.to_dict() for k, v in self.items.items()},
             "physics": self.physics.to_dict(),
             "server": self.server.to_dict(),
+            "webhooks": self.webhooks.to_dict(),
         }
         try:
             with open(self.config_path, "w", encoding="utf-8") as f:

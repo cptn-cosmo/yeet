@@ -85,15 +85,43 @@ curl "http://127.0.0.1:49122/api/v1/throw?item=beachball&amount=3&spawn_directio
 
 > **Note:** Parameters can be passed via either JSON payload or URL query string, on both `POST` and `GET` requests.
 
-### 2. Clear Active Items
-- **Endpoint:** `POST /api/v1/clear`
+### 2. Trigger a Collision Event (GET & POST)
+- **Endpoint:** `GET /api/v1/collision` or `POST /api/v1/collision`
+- Simulates an immediate collision directly on an avatar target (e.g. for channel point redeems like "!slap" or "!bonk" without waiting for projectile flight time). Plays the collision sound effect with pitch randomization and spawns an impact particle burst in OBS!
+- **Query Parameters / JSON:**
+  - `target` *(optional)*: Target ID or name (e.g. `"VTuber Head"`, `"target_vtuber_body"`). Defaults to primary target if omitted.
+  - `item` *(optional)*: Item to simulate impact for (e.g. `"beachball"`, `"brick"`, `"tomato"`).
+  - `sound` *(optional)*: Sound effect override (`"pop"`, `"bonk"`, `"squish"`, `"thud"`, `"clang"`).
+  - `volume` *(optional)*: Volume multiplier ($0.0$ to $1.0$).
+
+```bash
+# Direct collision via GET
+curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=beachball&sound=pop"
+
+# Direct collision via POST
+curl -X POST http://127.0.0.1:49122/api/v1/collision \
+  -H "Content-Type: application/json" \
+  -d '{"target": "VTuber Head", "item": "pie", "sound": "squish"}'
+```
+
+### 3. Collision Statistics & Counters
+- **Endpoint:** `GET /api/v1/collisions`
+- Returns total impact counts, breakdown by target, breakdown by item, and the recent collision log. Ideal for chat commands like `!hits` or stream leaderboard overlays.
+- Reset counter endpoint: `GET /api/v1/collisions/reset` or `POST /api/v1/collisions/reset`.
+
+```bash
+curl http://127.0.0.1:49122/api/v1/collisions
+```
+
+### 4. Clear Active Items
+- **Endpoint:** `POST /api/v1/clear` or `GET /api/v1/clear`
 - Immediately removes all active physics bodies from all connected OBS browser sources.
 
 ```bash
-curl -X POST http://127.0.0.1:49122/api/v1/clear
+curl http://127.0.0.1:49122/api/v1/clear
 ```
 
-### 3. List Throwable Items
+### 5. List Throwable Items
 - **Endpoint:** `GET /api/v1/items`
 - Returns an array of configured items and their physical/audio parameters.
 
@@ -101,13 +129,41 @@ curl -X POST http://127.0.0.1:49122/api/v1/clear
 curl http://127.0.0.1:49122/api/v1/items
 ```
 
-### 4. Health & Status Check
+### 6. Health & Status Check
 - **Endpoint:** `GET /api/v1/status`
-- Returns daemon uptime, active target count, and connected OBS overlay count.
+- Returns daemon uptime, active target count, total collisions, and connected OBS overlay count.
 
 ```bash
 curl http://127.0.0.1:49122/api/v1/status
 ```
+
+### 7. First Hit & Last Hit Collision Webhooks
+Yeet features an intelligent **barrage settling engine** that triggers outbound HTTP requests to external software (such as VTube Studio, VNyan, Lumia Stream, Streamer.bot, or smart lights):
+- **First Hit URL:** Fired **immediately** upon the very first impact of a throw or barrage (e.g., trigger a shocked/hurt expression or scream sound).
+- **Barrage Debounce:** Intermediate impacts occurring while items are continuously pelting the target will *not* flood your external webhooks.
+- **Last Hit URL:** Fired once the barrage settles and no new collisions occur for the configured **Settling Delay** (default: `2.0` seconds). Perfect for restoring a neutral VTuber expression, turning studio lights back to normal, or reporting the final count of hits!
+
+#### URL Template Placeholders
+Both GET and POST URLs support dynamic string interpolation:
+- `{target}`: Target name (URL encoded, e.g. `VTuber+Head`)
+- `{item}`: Item name that made the impact (e.g. `Beach+Ball`)
+- `{hits}`: Total number of collisions accumulated during this barrage
+- `{event}`: `"first_hit"` or `"last_hit"`
+
+#### Example Use Cases
+- **VTube Studio Expression Switching:**
+  - First Hit: `POST http://127.0.0.1:8001/vts/hotkey?id=Expression_Dizzy`
+  - Last Hit: `POST http://127.0.0.1:8001/vts/hotkey?id=Expression_Neutral`
+- **Streamer.bot / Home Assistant Lighting:**
+  - First Hit: Flash lights red on first impact
+  - Last Hit: Restore ambient lighting after barrage settles
+
+#### Webhook API Endpoints
+- `GET /api/v1/webhooks`: View current webhook settings
+- `POST /api/v1/webhooks`: Update webhook settings dynamically
+- `GET /api/v1/webhooks/test?event=first_hit`: Test the first hit trigger
+- `GET /api/v1/webhooks/test?event=last_hit`: Test the last hit trigger
+
 
 ---
 
