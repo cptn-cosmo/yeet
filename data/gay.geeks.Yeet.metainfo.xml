@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>gay.geeks.Yeet</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Yeet</name>
+  <summary>Wayland-native interactive stream throwing system for OBS</summary>
+  <developer id="gay.geeks">
+    <name>Yeet Contributors</name>
+  </developer>
+  <description>
+    <p>
+      Yeet is a modern, pure Wayland-native alternative to Twitch Integrated Throwing System (T.I.T.S.),
+      designed according to the GNOME Human Interface Guidelines. Built with GTK4 and Libadwaita,
+      Yeet empowers livestreamers and VTubers to set up interactive 2D collision targets, configure throwable
+      items with custom sound effects, and render physics overlays in OBS Studio.
+    </p>
+    <p>Key features include:</p>
+    <ul>
+      <li>Resolution-independent normalized collision targets (Box, Circle, VTuber Pill/Capsule, and custom Polygon convex hull)</li>
+      <li>Interactive drag-and-drop coordinate mapper canvas with stream backdrop alignment</li>
+      <li>Customizable throwable items supporting PNG, WebP, GIF, and SVG images</li>
+      <li>Matter.js 2D physics simulation running in an ultra-low-latency HTML5 browser source</li>
+      <li>Polyphonic Web Audio collision sound effects with volume and pitch randomization</li>
+      <li>Built-in audio limiter and debounce to prevent sound clipping during barrage throws</li>
+      <li>Embedded local HTTP REST API and WebSocket daemon for integration with Streamer.bot, MixItUp, and chat triggers</li>
+      <li>One-click OBS Browser Source URL copy and instant test throwing playground</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">gay.geeks.Yeet.desktop</launchable>
+  <url type="homepage">https://github.com/geeks/yeet</url>
+  <url type="bugtracker">https://github.com/geeks/yeet/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Target setup and coordinate mapper in Yeet</caption>
+      <image>https://raw.githubusercontent.com/geeks/yeet/main/data/screenshots/targets.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Item inventory and audio properties</caption>
+      <image>https://raw.githubusercontent.com/geeks/yeet/main/data/screenshots/items.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.0" date="2026-09-24">
+      <description>
+        <p>Initial release of Yeet featuring Wayland-native Libadwaita UI, resolution-independent targets, REST API, and OBS overlay.</p>
+      </description>
+    </release>
+  </releases>
+</component>

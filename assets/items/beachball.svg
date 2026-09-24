@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <!-- Sphere Drop Shadow -->
+    <filter id="ballShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="1" dy="3" stdDeviation="2.5" flood-opacity="0.3"/>
+    </filter>
+
+    <!-- Overall 3D Sphere Shading Overlay -->
+    <radialGradient id="sphereShade" cx="32%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="85%" stop-color="#000000" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>
+    </radialGradient>
+
+    <!-- Clip Path for the Sphere -->
+    <clipPath id="ballClip">
+      <circle cx="50" cy="50" r="46"/>
+    </clipPath>
+  </defs>
+
+  <!-- Base Circle with Drop Shadow -->
+  <circle cx="50" cy="50" r="46" fill="#f6f5f4" filter="url(#ballShadow)"/>
+
+  <!-- Segments clipped to sphere -->
+  <g clip-path="url(#ballClip)">
+    <!-- Panel 1: Red -->
+    <path d="M 38 24 C 18 36 6 58 12 78 C 22 68 32 45 38 24 Z" fill="#e01b24"/>
+    
+    <!-- Panel 2: Blue -->
+    <path d="M 38 24 C 32 45 22 68 12 78 C 24 88 42 96 58 94 C 54 75 48 50 38 24 Z" fill="#3584e4"/>
+    
+    <!-- Panel 3: White -->
+    <path d="M 38 24 C 48 50 54 75 58 94 C 74 92 88 80 94 65 C 78 55 60 40 38 24 Z" fill="#ffffff"/>
+    
+    <!-- Panel 4: Yellow -->
+    <path d="M 38 24 C 60 40 78 55 94 65 C 96 48 90 32 78 18 C 65 24 50 25 38 24 Z" fill="#f6d32d"/>
+    
+    <!-- Panel 5: Orange / Green Segment -->
+    <path d="M 38 24 C 50 25 65 24 78 18 C 68 8 52 4 36 6 C 36 12 37 18 38 24 Z" fill="#ff7800"/>
+    
+    <!-- Panel 6: Teal / White Segment filling remaining top-left -->
+    <path d="M 38 24 C 37 18 36 12 36 6 C 22 10 10 20 6 34 C 18 30 28 26 38 24 Z" fill="#2ec27e"/>
+    <path d="M 38 24 C 28 26 18 30 6 34 C 4 48 6 64 12 78 C 18 36 38 24 38 24 Z" fill="#ffffff"/>
+
+    <!-- Subtle panel seam lines -->
+    <path d="M 38 24 C 18 36 6 58 12 78" fill="none" stroke="#241f31" stroke-width="0.8" opacity="0.3"/>
+    <path d="M 38 24 C 32 45 22 68 12 78" fill="none" stroke="#241f31" stroke-width="0.8" opacity="0.3"/>
+    <path d="M 38 24 C 48 50 54 75 58 94" fill="none" stroke="#241f31" stroke-width="0.8" opacity="0.3"/>
+    <path d="M 38 24 C 60 40 78 55 94 65" fill="none" stroke="#241f31" stroke-width="0.8" opacity="0.3"/>
+    <path d="M 38 24 C 50 25 65 24 78 18" fill="none" stroke="#241f31" stroke-width="0.8" opacity="0.3"/>
+
+    <!-- Top Cap (Small circular node where panels meet) -->
+    <ellipse cx="38" cy="24" rx="7" ry="5.5" fill="#ffffff" stroke="#c0bfbc" stroke-width="0.75" transform="rotate(-15 38 24)"/>
+
+    <!-- 3D Spherical Volume Overlay -->
+    <circle cx="50" cy="50" r="46" fill="url(#sphereShade)"/>
+    
+    <!-- Specular Highlight -->
+    <ellipse cx="32" cy="22" rx="9" ry="5" fill="#ffffff" opacity="0.7" transform="rotate(-25 32 22)"/>
+  </g>
+</svg>

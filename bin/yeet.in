@@ -1,0 +1,12 @@
+#!@PYTHON@
+import sys
+import os
+
+pkgdatadir = '@PKGDATADIR@'
+if pkgdatadir not in sys.path:
+    sys.path.insert(0, pkgdatadir)
+
+from yeet.main import main
+
+if __name__ == "__main__":
+    sys.exit(main())

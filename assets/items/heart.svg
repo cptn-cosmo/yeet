@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="heartGrad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ff9fe5"/>
+      <stop offset="50%" stop-color="#f66151"/>
+      <stop offset="100%" stop-color="#c01c28"/>
+    </radialGradient>
+    <filter id="glow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#f66151" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <!-- Heart shape -->
+  <path d="M 50 88 C 20 68 8 50 8 32 C 8 16 20 8 34 8 C 42 8 47 13 50 18 C 53 13 58 8 66 8 C 80 8 92 16 92 32 C 92 50 80 68 50 88 Z" fill="url(#heartGrad)" filter="url(#glow)"/>
+  <!-- Specular highlight -->
+  <ellipse cx="32" cy="24" rx="8" ry="5" fill="#ffffff" opacity="0.6" transform="rotate(-30 32 24)"/>
+  <!-- Sparkles -->
+  <polygon points="76,20 78,25 83,27 78,29 76,34 74,29 69,27 74,25" fill="#ffffff" opacity="0.8"/>
+</svg>

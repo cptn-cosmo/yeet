@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80" width="100" height="80">
+  <defs>
+    <linearGradient id="crustGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f6d32d"/>
+      <stop offset="50%" stop-color="#e5a50a"/>
+      <stop offset="100%" stop-color="#c67800"/>
+    </linearGradient>
+    <linearGradient id="tinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#deddda"/>
+      <stop offset="100%" stop-color="#9a9996"/>
+    </linearGradient>
+    <radialGradient id="creamGrad" cx="45%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="70%" stop-color="#f5f5f7"/>
+      <stop offset="100%" stop-color="#deddda"/>
+    </radialGradient>
+  </defs>
+  <!-- Pie Tin Base -->
+  <polygon points="18,52 82,52 75,70 25,70" fill="url(#tinGrad)"/>
+  <ellipse cx="50" cy="70" rx="25" ry="5" fill="#77767b"/>
+  <!-- Pie Crust Rim -->
+  <ellipse cx="50" cy="50" rx="46" ry="14" fill="url(#crustGrad)"/>
+  <!-- Filling/Cream Dome -->
+  <path d="M 8 48 C 8 26 92 26 92 48 C 92 58 8 58 8 48 Z" fill="url(#creamGrad)"/>
+  <!-- Whipped cream dollops -->
+  <path d="M 50 15 C 45 28 55 35 50 36 C 44 35 46 25 50 15 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="0.8"/>
+  <circle cx="50" cy="18" r="4" fill="#e01b24"/>
+  <circle cx="51" cy="17" r="1.5" fill="#ffffff"/>
+  <!-- Crust wavy edges -->
+  <path d="M 4 48 Q 10 44 16 48 Q 22 44 28 48 Q 34 44 40 48 Q 46 44 52 48 Q 58 44 64 48 Q 70 44 76 48 Q 82 44 88 48 Q 94 44 98 48" fill="none" stroke="#b56a00" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

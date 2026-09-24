@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import sys
+import os
+
+# Prepend project root directory to sys.path
+src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+from yeet.main import main
+
+if __name__ == "__main__":
+    sys.exit(main())

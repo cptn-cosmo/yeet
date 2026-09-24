@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Yeet
+Comment=Interactive stream throwing system and physics overlay
+GenericName=Stream Throwing System
+Exec=yeet
+Icon=gay.geeks.Yeet
+Terminal=false
+Type=Application
+Categories=AudioVideo;GTK;
+Keywords=twitch;vtuber;throwing;stream;obs;tits;physics;overlay;
+StartupNotify=true
+Actions=LaunchOverlay;
+
+[Desktop Action LaunchOverlay]
+Name=Open OBS Overlay in Browser
+Exec=xdg-open http://127.0.0.1:49122/overlay
