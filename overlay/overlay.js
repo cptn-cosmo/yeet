@@ -857,21 +857,26 @@
         break;
 
       case 'throw': {
-        const item = (typeof msg.item === 'object' && msg.item !== null ? msg.item : null) ||
-                     msg.item_data ||
-                     (config.items && config.items[msg.item]) ||
-                     (config.items && Object.values(config.items)[0]);
-        if (!item) {
-          console.warn('[Yeet Overlay] Unknown item for throw:', msg.item);
-          return;
-        }
+        const fallbackItem = (typeof msg.item === 'object' && msg.item !== null ? msg.item : null) ||
+                             msg.item_data ||
+                             (config.items && config.items[msg.item]) ||
+                             (config.items && Object.values(config.items)[0]);
 
-        const count = Math.max(1, Math.min(50, msg.amount || 1));
+        const count = Math.max(1, Math.min(100, msg.amount || (msg.items_data ? msg.items_data.length : 1)));
         const direction = msg.spawn_direction || config.physics.default_spawn_direction || 'random';
         const force = msg.force ?? config.physics.default_force ?? 1.0;
         const spread = msg.spread ?? config.physics.default_spread ?? 15.0;
 
         for (let i = 0; i < count; i++) {
+          let item = fallbackItem;
+          if (msg.items_data && msg.items_data[i]) {
+            item = msg.items_data[i];
+          } else if (msg.items && msg.items[i]) {
+            const itKey = msg.items[i];
+            item = (config.items && config.items[itKey]) || fallbackItem;
+          }
+          if (!item) continue;
+
           // Slight staggered spawn delay for barrages
           setTimeout(() => {
             spawnItem(item, direction, force, spread);

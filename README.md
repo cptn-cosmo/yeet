@@ -65,7 +65,10 @@ The local HTTP server listens by default on `http://127.0.0.1:49122`.
     "spread": 15.0
   }
   ```
-  - `item` *(optional)*: Item ID or name (`"beachball"`, `"brick"`, `"tomato"`, `"pie"`, `"rubber_duck"`, `"water_balloon"`, `"heart"`). If omitted or set to `"random"`, an item is picked at random.
+  - `item` *(optional)*: Item ID or name (`"beachball"`, `"brick"`, `"tomato"`, `"pie"`, `"rubber_duck"`, `"water_balloon"`, `"heart"`), `"random"`, or `"random_mix"`.
+  - `items` *(optional for random_mix)*: `"all"` or comma-separated list / JSON array of item IDs or names (e.g. `items=pie,beachball,brick`).
+  - `group` / `item_group` *(optional)*: Filter candidate pool by item group tag (e.g. `group=summer`, `group=food`).
+  - `item_exclude` / `group_exclude` / `exclude` *(optional)*: Exclude items or entire groups. Supports comma-separated values (e.g. `item_exclude=winter,food`) or repeated query parameters.
   - `amount` *(optional, default: 1)*: Number of items to spawn.
   - `spawn_direction` *(optional, default: configured)*: `"left"`, `"right"`, `"top"`, `"bottom"`, `"random"`, `"aimed"`, `"rain"`, or `"spray"`.
   - `force` *(optional, default: 1.0)*: Velocity multiplier.
@@ -83,7 +86,22 @@ curl -X POST http://127.0.0.1:49122/api/v1/throw \
 curl "http://127.0.0.1:49122/api/v1/throw?item=beachball&amount=3&spawn_direction=rain&force=1.2"
 ```
 
-> **Note:** Parameters can be passed via either JSON payload or URL query string, on both `POST` and `GET` requests.
+**Example 3: Random Mix (All items excluding a group, e.g. winter)**
+```bash
+curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter&amount=5"
+```
+
+**Example 4: Random Mix from a specific item group (e.g. summer)**
+```bash
+curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&group=summer&amount=4"
+```
+
+**Example 5: Random Mix excluding multiple groups (comma-separated)**
+```bash
+curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter,food&amount=6"
+```
+
+> **Note:** In `random_mix` mode, each individual projectile in the barrage is randomly selected independently from the resolved pool. Parameters can be passed via either JSON payload or URL query string, on both `POST` and `GET` requests.
 
 ### 2. Trigger a Collision Event (GET & POST)
 - **Endpoint:** `GET /api/v1/collision` or `POST /api/v1/collision`

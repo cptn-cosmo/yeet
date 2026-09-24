@@ -195,8 +195,8 @@ class PhysicsView(Adw.PreferencesPage):
 
         # Update test item combo
         items_list = list(self.config_manager.items.values())
-        names = [it.name for it in items_list] if items_list else ["Random"]
-        self.test_item_combo.set_model(Gtk.StringList.new(["🎲 Random Item"] + names))
+        names = [f"{it.name} [{it.group}]" if it.group else it.name for it in items_list] if items_list else []
+        self.test_item_combo.set_model(Gtk.StringList.new(["🎲 Random Item", "🔀 Random Mix (All Items)"] + names))
 
         self._updating_ui = False
 
@@ -253,8 +253,10 @@ class PhysicsView(Adw.PreferencesPage):
 
         if idx == 0 or not items_list:
             item_id = "random"
+        elif idx == 1:
+            item_id = "random_mix"
         else:
-            item_id = items_list[idx - 1].id
+            item_id = items_list[idx - 2].id
 
         amount = int(self.test_amount_row.get_value())
         dir_idx = self.dir_row.get_selected()

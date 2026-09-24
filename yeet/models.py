@@ -46,6 +46,7 @@ class ThrowableItem:
     id: str
     name: str
     image_url: str            # Relative or absolute URL served by Yeet
+    group: str = "default"    # Item category / group tag (e.g. "summer", "food", "winter")
     scale: float = 0.08       # Normalized size relative to canvas
     mass: float = 1.0         # Physics mass
     bounciness: float = 0.65  # Restitution
@@ -65,6 +66,7 @@ class ThrowableItem:
             id=data.get('id', 'item_1'),
             name=data.get('name', 'Item'),
             image_url=data.get('image_url', '/assets/items/tomato.svg'),
+            group=str(data.get('group', 'default')).strip() or 'default',
             scale=float(data.get('scale', 0.08)),
             mass=float(data.get('mass', 1.0)),
             bounciness=float(data.get('bounciness', 0.65)),
@@ -176,6 +178,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="tomato",
             name="Ripe Tomato",
             image_url="/assets/items/tomato.svg",
+            group="food",
             scale=0.08,
             mass=0.8,
             bounciness=0.4,
@@ -190,6 +193,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="brick",
             name="Red Brick",
             image_url="/assets/items/brick.svg",
+            group="construction",
             scale=0.09,
             mass=2.5,
             bounciness=0.25,
@@ -204,6 +208,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="pie",
             name="Cream Pie",
             image_url="/assets/items/pie.svg",
+            group="food",
             scale=0.10,
             mass=0.9,
             bounciness=0.3,
@@ -218,6 +223,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="rubber_duck",
             name="Rubber Duck",
             image_url="/assets/items/rubber_duck.svg",
+            group="toys",
             scale=0.08,
             mass=0.5,
             bounciness=0.85,
@@ -232,6 +238,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="water_balloon",
             name="Water Balloon",
             image_url="/assets/items/water_balloon.svg",
+            group="summer",
             scale=0.08,
             mass=0.7,
             bounciness=0.45,
@@ -246,6 +253,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="heart",
             name="Heart Plushie",
             image_url="/assets/items/heart.svg",
+            group="cute",
             scale=0.09,
             mass=0.4,
             bounciness=0.7,
@@ -260,6 +268,7 @@ def get_default_items() -> Dict[str, ThrowableItem]:
             id="beachball",
             name="Beach Ball",
             image_url="/assets/items/beachball.svg",
+            group="summer",
             scale=0.13,
             mass=0.25,
             bounciness=0.92,

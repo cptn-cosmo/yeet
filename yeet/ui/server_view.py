@@ -251,6 +251,31 @@ class ServerView(Adw.PreferencesPage):
         query_exp.add_row(query_box)
         api_group.add(query_exp)
 
+        # GET /api/v1/throw (Random Mix, Groups and Exclusions) Expander
+        mix_exp = Adw.ExpanderRow()
+        mix_exp.set_title("GET /api/v1/throw (Random Mix, Groups and Exclusions)")
+        mix_exp.set_subtitle("Barrage where each item is selected randomly from a pool or group with exclusions")
+
+        mix_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        mix_box.set_margin_top(8)
+        mix_box.set_margin_bottom(8)
+        mix_box.set_margin_start(16)
+        mix_box.set_margin_end(16)
+
+        curl_mix = 'curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter&amount=5"'
+        mix_lbl = Gtk.Label(label=curl_mix, xalign=0)
+        mix_lbl.add_css_class("monospace")
+        mix_lbl.set_selectable(True)
+        mix_box.append(mix_lbl)
+
+        mix_copy_btn = Gtk.Button(label="Copy Random Mix Request")
+        mix_copy_btn.set_icon_name("edit-copy-symbolic")
+        mix_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_mix))
+        mix_box.append(mix_copy_btn)
+
+        mix_exp.add_row(mix_box)
+        api_group.add(mix_exp)
+
         # POST /api/v1/clear Expander
         clear_exp = Adw.ExpanderRow()
         clear_exp.set_title("POST /api/v1/clear")

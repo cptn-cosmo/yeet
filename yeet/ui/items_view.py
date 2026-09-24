@@ -61,6 +61,12 @@ class ItemsView(Adw.PreferencesPage):
         self.name_row.connect("changed", self._on_prop_changed)
         self.props_group.add(self.name_row)
 
+        # Item Group / Tag
+        self.group_row = Adw.EntryRow()
+        self.group_row.set_title("Item Group / Tag")
+        self.group_row.connect("changed", self._on_prop_changed)
+        self.props_group.add(self.group_row)
+
         # Scale Slider
         self.scale_row = Adw.SpinRow()
         self.scale_row.set_title("Display Scale")
@@ -169,7 +175,7 @@ class ItemsView(Adw.PreferencesPage):
     def refresh_items(self):
         self._updating_ui = True
         items_list = list(self.config_manager.items.values())
-        names = [f"{it.name} ({it.id})" for it in items_list] if items_list else ["No Items"]
+        names = [f"{it.name} [{it.group}]" if it.group else it.name for it in items_list] if items_list else ["No Items"]
         model = Gtk.StringList.new(names)
         self.item_combo.set_model(model)
 
@@ -202,6 +208,7 @@ class ItemsView(Adw.PreferencesPage):
         self._updating_ui = True
 
         self.name_row.set_text(it.name)
+        self.group_row.set_text(it.group or "default")
         self.scale_row.set_value(it.scale)
         self.mass_row.set_value(it.mass)
         self.bounce_row.set_value(it.bounciness)
@@ -237,6 +244,7 @@ class ItemsView(Adw.PreferencesPage):
             return
 
         it.name = self.name_row.get_text() or it.name
+        it.group = self.group_row.get_text().strip() or "default"
         it.scale = self.scale_row.get_value()
         it.mass = self.mass_row.get_value()
         it.bounciness = self.bounce_row.get_value()

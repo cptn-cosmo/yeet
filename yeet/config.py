@@ -63,10 +63,13 @@ class ConfigManager:
             if not self.items:
                 self.items = get_default_items()
             else:
-                # Merge any newly added default items (e.g. beachball)
-                for k, v in get_default_items().items():
+                # Merge any newly added default items (e.g. beachball) and backfill groups
+                defaults = get_default_items()
+                for k, v in defaults.items():
                     if k not in self.items:
                         self.items[k] = v
+                    elif not getattr(self.items[k], "group", None) or self.items[k].group == "default":
+                        self.items[k].group = v.group
 
             self.physics = PhysicsConfig.from_dict(data.get("physics", {}))
             self.server = ServerConfig.from_dict(data.get("server", {}))

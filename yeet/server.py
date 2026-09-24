@@ -11,7 +11,7 @@ import logging
 import asyncio
 import threading
 import urllib.parse
-from typing import Set, Dict, Any, Optional, Callable
+from typing import Set, Dict, Any, Optional, Callable, List, Tuple
 from collections import deque
 import aiohttp
 from aiohttp import web, WSMsgType
@@ -201,14 +201,19 @@ class ServerDaemon:
 
         self._barrage_timer_task = asyncio.create_task(_settling_worker())
 
-    def _schedule_simulated_throw_hits(self, item, amount: int):
+    def _schedule_simulated_throw_hits(self, items):
+        if not items:
+            return
+        if not isinstance(items, list):
+            items = [items]
+
         target = self.config_manager.targets[0] if self.config_manager.targets else None
         target_id = target.id if target else "target"
         target_name = target.name if target else "VTuber Head"
 
         # Staggered simulation hits after brief flight delay (0.35s)
         base_delay = 0.35
-        hits_count = max(1, min(amount, 8))
+        hits_count = max(1, min(len(items), 8))
 
         def _fire_hit(tgt_id, tgt_nm, it_id, it_nm):
             self.record_collision(
@@ -221,8 +226,111 @@ class ServerDaemon:
 
         if self.loop and self.loop.is_running():
             for i in range(hits_count):
+                it = items[i]
                 delay = base_delay + (i * 0.12)
-                self.loop.call_later(delay, _fire_hit, target_id, target_name, item.id, item.name)
+                self.loop.call_later(delay, _fire_hit, target_id, target_name, it.id, it.name)
+
+    def resolve_items_for_throw(
+        self,
+        item_key: Optional[str] = None,
+        raw_items: Optional[List[str]] = None,
+        raw_groups: Optional[List[str]] = None,
+        raw_excludes: Optional[List[str]] = None,
+        amount: int = 1,
+    ) -> Tuple[List[ThrowableItem], bool, List[str]]:
+        """
+        Resolves the projectile items to spawn.
+        Supports specific items, random, and random_mix with items/group filters and exclusions.
+        Returns: (selected_items, is_random_mix, candidate_pool_ids)
+        """
+        all_items = list(self.config_manager.items.values())
+        if not all_items:
+            return [], False, []
+
+        amount = max(1, min(100, amount))
+
+        # Determine if random_mix mode is requested
+        is_mix = False
+        if item_key:
+            ik = item_key.strip().lower()
+            if ik in ["random_mix", "mix", "all"]:
+                is_mix = True
+        if raw_items:
+            is_mix = True
+        if raw_groups:
+            is_mix = True
+        if raw_excludes:
+            is_mix = True
+
+        # Build candidate item pool
+        if raw_items:
+            # Check if "all" keyword is present in items
+            if any(x.lower() == "all" for x in raw_items):
+                pool = list(all_items)
+            else:
+                pool = []
+                for query_val in raw_items:
+                    qv = query_val.strip().lower()
+                    matched = False
+                    for it in all_items:
+                        if it.id.lower() == qv or it.name.lower() == qv:
+                            if it not in pool:
+                                pool.append(it)
+                            matched = True
+                    # If not matched by ID/name, check if it matches an item group
+                    if not matched:
+                        for it in all_items:
+                            if it.group.lower() == qv:
+                                if it not in pool:
+                                    pool.append(it)
+        elif item_key and item_key.strip().lower() == "all":
+            pool = list(all_items)
+        else:
+            pool = list(all_items)
+
+        # Filter by group(s) if provided
+        if raw_groups:
+            group_set = {g.strip().lower() for g in raw_groups if g.strip()}
+            if group_set:
+                if not raw_items or any(x.lower() == "all" for x in raw_items):
+                    pool = [it for it in pool if it.group.lower() in group_set]
+                else:
+                    # Include any items matching groups in addition to explicit items
+                    for it in all_items:
+                        if it.group.lower() in group_set and it not in pool:
+                            pool.append(it)
+
+        # Apply exclusions (item ID, name, or group)
+        if raw_excludes:
+            exclude_set = {x.strip().lower() for x in raw_excludes if x.strip()}
+            if exclude_set:
+                pool = [
+                    it for it in pool
+                    if it.id.lower() not in exclude_set
+                    and it.name.lower() not in exclude_set
+                    and it.group.lower() not in exclude_set
+                ]
+
+        if is_mix:
+            if not pool:
+                return [], True, []
+            selected_items = [random.choice(pool) for _ in range(amount)]
+            return selected_items, True, [it.id for it in pool]
+
+        # Standard non-mix selection
+        if not item_key or item_key.strip().lower() == "random":
+            single_item = random.choice(all_items)
+        else:
+            single_item = None
+            target_key = item_key.strip().lower()
+            for it in all_items:
+                if it.id.lower() == target_key or it.name.lower() == target_key:
+                    single_item = it
+                    break
+            if not single_item:
+                single_item = random.choice(all_items)
+
+        return [single_item] * amount, False, [single_item.id]
 
     async def handle_status(self, request: web.Request) -> web.Response:
         data = {
@@ -238,7 +346,11 @@ class ServerDaemon:
         return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
     async def handle_get_items(self, request: web.Request) -> web.Response:
+        group_filter = request.query.get("group")
         items_list = [item.to_dict() for item in self.config_manager.items.values()]
+        if group_filter:
+            gf = group_filter.strip().lower()
+            items_list = [it for it in items_list if it.get("group", "").lower() == gf]
         return web.json_response({"items": items_list}, headers={"Access-Control-Allow-Origin": "*"})
 
     async def handle_get_targets(self, request: web.Request) -> web.Response:
@@ -272,13 +384,13 @@ class ServerDaemon:
             except Exception:
                 body = {}
 
-        # Query parameters take precedence if provided, falling back to JSON body
+        # item parameter
         item_key = query.get("item", body.get("item"))
 
         # Amount parsing
         amount_val = query.get("amount", body.get("amount", 1))
         try:
-            amount = int(amount_val)
+            amount = max(1, min(100, int(amount_val)))
         except (ValueError, TypeError):
             amount = 1
 
@@ -308,32 +420,76 @@ class ServerDaemon:
         except (ValueError, TypeError):
             spread = self.config_manager.physics.default_spread
 
-        # Item selection: random if omitted, or pick specified
-        available_items = list(self.config_manager.items.values())
-        if not available_items:
-            return web.json_response({"status": "error", "message": "No throwable items configured"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        # Parse items list / filter
+        raw_items = []
+        if "items" in query:
+            for val in query.getall("items"):
+                for part in val.split(","):
+                    p = part.strip()
+                    if p:
+                        raw_items.append(p)
+        elif "items" in body:
+            b_items = body.get("items")
+            if isinstance(b_items, list):
+                raw_items = [str(x).strip() for x in b_items if str(x).strip()]
+            elif isinstance(b_items, str):
+                raw_items = [x.strip() for x in b_items.split(",") if x.strip()]
 
-        selected_item: Optional[ThrowableItem] = None
-        if not item_key or item_key == "random":
-            selected_item = random.choice(available_items)
-        else:
-            if item_key in self.config_manager.items:
-                selected_item = self.config_manager.items[item_key]
-            else:
-                # Case-insensitive match on ID or Name
-                for it in available_items:
-                    if it.id.lower() == item_key.lower() or it.name.lower() == item_key.lower():
-                        selected_item = it
-                        break
-                if not selected_item:
-                    selected_item = random.choice(available_items)
+        # Parse group filter (accepts group, item_group, groups, item_groups)
+        raw_groups = []
+        for g_key in ["group", "item_group", "groups", "item_groups"]:
+            if g_key in query:
+                for val in query.getall(g_key):
+                    for part in val.split(","):
+                        p = part.strip()
+                        if p:
+                            raw_groups.append(p)
+            elif g_key in body:
+                b_g = body.get(g_key)
+                if isinstance(b_g, list):
+                    raw_groups.extend([str(x).strip() for x in b_g if str(x).strip()])
+                elif isinstance(b_g, str):
+                    raw_groups.extend([x.strip() for x in b_g.split(",") if x.strip()])
 
-        # Broadcast throw command to all connected OBS overlay instances
+        # Parse exclusion filters (accepts item_exclude, group_exclude, exclude, items_exclude, exclude_group, exclude_item, excludes)
+        raw_excludes = []
+        for ex_key in ["item_exclude", "group_exclude", "exclude", "items_exclude", "exclude_group", "exclude_item", "excludes"]:
+            if ex_key in query:
+                for val in query.getall(ex_key):
+                    for part in val.split(","):
+                        p = part.strip()
+                        if p:
+                            raw_excludes.append(p)
+            elif ex_key in body:
+                b_ex = body.get(ex_key)
+                if isinstance(b_ex, list):
+                    raw_excludes.extend([str(x).strip() for x in b_ex if str(x).strip()])
+                elif isinstance(b_ex, str):
+                    raw_excludes.extend([x.strip() for x in b_ex.split(",") if x.strip()])
+
+        selected_items, is_random_mix, pool_ids = self.resolve_items_for_throw(
+            item_key=item_key,
+            raw_items=raw_items,
+            raw_groups=raw_groups,
+            raw_excludes=raw_excludes,
+            amount=amount
+        )
+
+        if not selected_items:
+            return web.json_response({
+                "status": "error",
+                "message": f"No throwable items matched filter criteria (item={item_key}, items={raw_items}, group={raw_groups}, exclude={raw_excludes})"
+            }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        first_item = selected_items[0]
         event_payload = {
             "type": "throw",
-            "item": selected_item.id,
-            "item_data": selected_item.to_dict(),
-            "amount": max(1, min(100, amount)),
+            "mode": "random_mix" if is_random_mix else "single",
+            "item": first_item.id,
+            "item_data": first_item.to_dict(),
+            "items": [it.id for it in selected_items],
+            "items_data": [it.to_dict() for it in selected_items],
+            "amount": amount,
             "spawn_direction": spawn_direction,
             "force": force,
             "spread": spread,
@@ -343,7 +499,7 @@ class ServerDaemon:
         # Fallback simulation if no active OBS overlays are connected (e.g. headless/desktop testing)
         if len(self.connected_ws) == 0:
             logger.info("No active OBS overlays connected; simulating throw impact for barrage/webhook triggers")
-            self._schedule_simulated_throw_hits(selected_item, amount)
+            self._schedule_simulated_throw_hits(selected_items)
 
         # Notify GTK application callback if registered
         if self.on_throw_event:
@@ -354,8 +510,11 @@ class ServerDaemon:
 
         return web.json_response({
             "status": "ok",
-            "message": f"Spawned {amount} of {selected_item.name}",
-            "item": selected_item.id,
+            "message": f"Spawned {amount} items ({'random_mix' if is_random_mix else first_item.name})",
+            "mode": "random_mix" if is_random_mix else "single",
+            "pool": pool_ids if is_random_mix else [first_item.id],
+            "item": first_item.id,
+            "items": [it.id for it in selected_items],
             "amount": amount,
             "spawn_direction": spawn_direction,
             "force": force,
@@ -524,17 +683,40 @@ class ServerDaemon:
         if self.loop and self.loop.is_running():
             asyncio.run_coroutine_threadsafe(self.broadcast(message), self.loop)
 
-    def threadsafe_throw(self, item_id: str, amount: int = 1, spawn_direction: str = "random", force: float = 1.0, spread: float = 15.0):
-        item = self.config_manager.items.get(item_id)
-        if not item and self.config_manager.items:
-            item = list(self.config_manager.items.values())[0]
-        if not item:
+    def threadsafe_throw(
+        self,
+        item_id: str = "random",
+        amount: int = 1,
+        spawn_direction: str = "random",
+        force: float = 1.0,
+        spread: float = 15.0,
+        items: Optional[List[str]] = None,
+        group: Optional[str] = None,
+        exclude: Optional[List[str]] = None,
+    ):
+        raw_items = items or []
+        raw_groups = [group] if group else []
+        raw_excludes = exclude or []
+
+        selected_items, is_random_mix, pool_ids = self.resolve_items_for_throw(
+            item_key=item_id,
+            raw_items=raw_items,
+            raw_groups=raw_groups,
+            raw_excludes=raw_excludes,
+            amount=amount
+        )
+        if not selected_items:
+            logger.warning(f"No items available to throw for filter: item={item_id}")
             return
 
+        first_item = selected_items[0]
         payload = {
             "type": "throw",
-            "item": item.id,
-            "item_data": item.to_dict(),
+            "mode": "random_mix" if is_random_mix else "single",
+            "item": first_item.id,
+            "item_data": first_item.to_dict(),
+            "items": [it.id for it in selected_items],
+            "items_data": [it.to_dict() for it in selected_items],
             "amount": amount,
             "spawn_direction": spawn_direction,
             "force": force,
@@ -547,7 +729,7 @@ class ServerDaemon:
         # Fallback simulation if no active OBS overlays are connected (e.g. desktop app testing)
         if len(self.connected_ws) == 0:
             logger.info("No active OBS overlays connected; simulating throw impact for barrage/webhook triggers")
-            self._schedule_simulated_throw_hits(item, amount)
+            self._schedule_simulated_throw_hits(selected_items)
 
     def threadsafe_clear(self):
         self.threadsafe_broadcast({"type": "clear"})
