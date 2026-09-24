@@ -304,7 +304,16 @@
         let targetBody = null;
         let throwableBody = null;
 
-        if (pair.bodyA.label === 'target' && pair.bodyB.label === 'throwable') {
+        const bodyA = pair.bodyA.parent || pair.bodyA;
+        const bodyB = pair.bodyB.parent || pair.bodyB;
+
+        if (bodyA.label === 'target' && bodyB.label === 'throwable') {
+          targetBody = bodyA;
+          throwableBody = bodyB;
+        } else if (bodyB.label === 'target' && bodyA.label === 'throwable') {
+          targetBody = bodyB;
+          throwableBody = bodyA;
+        } else if (pair.bodyA.label === 'target' && pair.bodyB.label === 'throwable') {
           targetBody = pair.bodyA;
           throwableBody = pair.bodyB;
         } else if (pair.bodyB.label === 'target' && pair.bodyA.label === 'throwable') {
@@ -312,35 +321,44 @@
           throwableBody = pair.bodyA;
         }
 
-        if (targetBody && throwableBody && throwableBody.yeetData) {
-          const data = throwableBody.yeetData;
-          const now = performance.now();
-          if (now - (data.lastHitTime || 0) > 60) {
-            data.lastHitTime = now;
-            data.hitCount = (data.hitCount || 0) + 1;
+        if (targetBody && throwableBody) {
+          const data = throwableBody.yeetData || (throwableBody.parent && throwableBody.parent.yeetData);
+          if (data && data.item) {
+            const now = performance.now();
+            if (now - (data.lastHitTime || 0) > 60) {
+              data.lastHitTime = now;
+              data.hitCount = (data.hitCount || 0) + 1;
 
-            // Trigger collision audio effect
-            playCollisionSound(
-              data.item.sound_effect,
-              data.item.sound_volume ?? 0.8,
-              data.item.pitch_randomness ?? 0.2
-            );
+              // Trigger collision audio effect
+              playCollisionSound(
+                data.item.sound_effect,
+                data.item.sound_volume ?? 0.8,
+                data.item.pitch_randomness ?? 0.2
+              );
 
-            // Trigger visual impact burst
-            spawnImpactBurst(throwableBody.position.x, throwableBody.position.y);
+              // Trigger visual impact burst
+              spawnImpactBurst(throwableBody.position.x, throwableBody.position.y);
 
-            // Notify daemon server via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              try {
-                ws.send(JSON.stringify({
-                  type: 'collision_event',
-                  target_id: targetBody.yeetTarget ? targetBody.yeetTarget.id : 'target',
-                  target_name: targetBody.yeetTarget ? targetBody.yeetTarget.name : 'Target',
-                  item_id: data.item.id,
-                  item_name: data.item.name,
-                  timestamp: Date.now()
-                }));
-              } catch (e) {}
+              // Target metadata
+              const yeetTarget = targetBody.yeetTarget ||
+                                 (targetBody.parent && targetBody.parent.yeetTarget) ||
+                                 (config.targets && config.targets[0]);
+
+              // Notify daemon server via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                try {
+                  ws.send(JSON.stringify({
+                    type: 'collision_event',
+                    target_id: yeetTarget ? yeetTarget.id : 'target',
+                    target_name: yeetTarget ? yeetTarget.name : 'Target',
+                    item_id: data.item.id,
+                    item_name: data.item.name,
+                    timestamp: Date.now()
+                  }));
+                } catch (e) {
+                  console.error('[Yeet Overlay] Error sending collision_event:', e);
+                }
+              }
             }
           }
         }
@@ -489,58 +507,70 @@
     const targetPos = getPrimaryTargetCenter();
     let spawnX = 0;
     let spawnY = 0;
-    let baseAngle = 0; // Direction projectile will head
-    let baseSpeed = 18.0 * (forceMultiplier || 1.0);
+    let baseAngle = 0;
+    let baseSpeed = 22.0 * (forceMultiplier || 1.0);
+
+    const gravY = (config.physics && config.physics.gravity) ? (config.physics.gravity[1] ?? 1.0) : 1.0;
+    const gravX = (config.physics && config.physics.gravity) ? (config.physics.gravity[0] ?? 0.0) : 0.0;
+    const itemGrav = itemData.gravity_scale ?? 1.0;
+    // Effective acceleration per frame in Matter.js (engine.gravity.scale = 0.001)
+    const effAy = 0.24 * gravY * itemGrav;
+    const effAx = 0.24 * gravX * itemGrav;
 
     const dir = (spawnDirection || 'random').toLowerCase();
     let chosenDir = dir;
     if (dir === 'random') {
-      const options = ['left', 'right', 'top', 'bottom'];
+      const options = ['left', 'right', 'top', 'bottom', 'aimed'];
       chosenDir = options[Math.floor(Math.random() * options.length)];
     }
+
+    let isBallistic = false;
 
     switch (chosenDir) {
       case 'left':
         spawnX = -50;
-        spawnY = targetPos.y + (Math.random() - 0.5) * (height * 0.4);
-        baseAngle = Math.atan2(targetPos.y - spawnY, targetPos.x - spawnX);
+        spawnY = targetPos.y + (Math.random() - 0.5) * (height * 0.25);
+        isBallistic = true;
         break;
 
       case 'right':
         spawnX = width + 50;
-        spawnY = targetPos.y + (Math.random() - 0.5) * (height * 0.4);
-        baseAngle = Math.atan2(targetPos.y - spawnY, targetPos.x - spawnX);
+        spawnY = targetPos.y + (Math.random() - 0.5) * (height * 0.25);
+        isBallistic = true;
         break;
 
       case 'top':
-        spawnX = targetPos.x + (Math.random() - 0.5) * (width * 0.5);
+        spawnX = targetPos.x + (Math.random() - 0.5) * (width * 0.3);
         spawnY = -50;
-        baseAngle = Math.atan2(targetPos.y - spawnY, targetPos.x - spawnX);
+        isBallistic = true;
         break;
 
       case 'bottom':
-        spawnX = targetPos.x + (Math.random() - 0.5) * (width * 0.5);
+        spawnX = targetPos.x + (Math.random() - 0.5) * (width * 0.3);
         spawnY = height + 50;
-        baseAngle = Math.atan2(targetPos.y - spawnY, targetPos.x - spawnX);
+        isBallistic = true;
         break;
 
       case 'aimed': {
-        // Spawn from random edge aiming directly at target center
         const edge = Math.floor(Math.random() * 4);
         if (edge === 0) { spawnX = -50; spawnY = Math.random() * height; }
         else if (edge === 1) { spawnX = width + 50; spawnY = Math.random() * height; }
         else if (edge === 2) { spawnX = Math.random() * width; spawnY = -50; }
         else { spawnX = Math.random() * width; spawnY = height + 50; }
-        baseAngle = Math.atan2(targetPos.y - spawnY, targetPos.x - spawnX);
+        isBallistic = true;
         break;
       }
 
-      case 'rain':
-        spawnX = Math.random() * (width * 0.8) + (width * 0.1);
+      case 'rain': {
+        const targetW = (config.targets && config.targets[0] && config.targets[0].width)
+          ? config.targets[0].width * width
+          : (width * 0.2);
+        spawnX = targetPos.x + (Math.random() - 0.5) * (targetW * 1.2);
         spawnY = -40;
         baseAngle = Math.PI / 2; // Directly downward
-        baseSpeed = 8.0 * (forceMultiplier || 1.0);
+        baseSpeed = 12.0 * (forceMultiplier || 1.0);
         break;
+      }
 
       case 'spray': {
         const pt = config.physics.spawn_point || [0.0, 0.5];
@@ -549,6 +579,16 @@
         baseAngle = ((config.physics.spray_angle ?? 0) * Math.PI) / 180;
         break;
       }
+    }
+
+    if (isBallistic) {
+      const dx = targetPos.x - spawnX;
+      const dy = targetPos.y - spawnY;
+      const dist = Math.hypot(dx, dy);
+      const estTime = Math.max(1, dist / baseSpeed);
+      const aimX = targetPos.x - 0.5 * effAx * estTime * estTime;
+      const aimY = targetPos.y - 0.5 * effAy * estTime * estTime;
+      baseAngle = Math.atan2(aimY - spawnY, aimX - spawnX);
     }
 
     // Apply angular variance (spread)
@@ -817,7 +857,10 @@
         break;
 
       case 'throw': {
-        const item = msg.item_data || config.items[msg.item] || Object.values(config.items)[0];
+        const item = (typeof msg.item === 'object' && msg.item !== null ? msg.item : null) ||
+                     msg.item_data ||
+                     (config.items && config.items[msg.item]) ||
+                     (config.items && Object.values(config.items)[0]);
         if (!item) {
           console.warn('[Yeet Overlay] Unknown item for throw:', msg.item);
           return;

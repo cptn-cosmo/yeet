@@ -96,7 +96,15 @@ class ServerDaemon:
 
         # Trigger first/last hit barrage tracking
         if self.loop and self.loop.is_running():
-            asyncio.run_coroutine_threadsafe(self._handle_barrage_hit(target_name, item_name), self.loop)
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+
+            if running_loop == self.loop:
+                self.loop.create_task(self._handle_barrage_hit(target_name, item_name))
+            else:
+                asyncio.run_coroutine_threadsafe(self._handle_barrage_hit(target_name, item_name), self.loop)
 
         if self.on_collision_event:
             try:
@@ -192,6 +200,29 @@ class ServerDaemon:
                 pass
 
         self._barrage_timer_task = asyncio.create_task(_settling_worker())
+
+    def _schedule_simulated_throw_hits(self, item, amount: int):
+        target = self.config_manager.targets[0] if self.config_manager.targets else None
+        target_id = target.id if target else "target"
+        target_name = target.name if target else "VTuber Head"
+
+        # Staggered simulation hits after brief flight delay (0.35s)
+        base_delay = 0.35
+        hits_count = max(1, min(amount, 8))
+
+        def _fire_hit(tgt_id, tgt_nm, it_id, it_nm):
+            self.record_collision(
+                target_id=tgt_id,
+                target_name=tgt_nm,
+                item_id=it_id,
+                item_name=it_nm,
+                source="simulated"
+            )
+
+        if self.loop and self.loop.is_running():
+            for i in range(hits_count):
+                delay = base_delay + (i * 0.12)
+                self.loop.call_later(delay, _fire_hit, target_id, target_name, item.id, item.name)
 
     async def handle_status(self, request: web.Request) -> web.Response:
         data = {
@@ -308,6 +339,11 @@ class ServerDaemon:
             "spread": spread,
         }
         await self.broadcast(event_payload)
+
+        # Fallback simulation if no active OBS overlays are connected (e.g. headless/desktop testing)
+        if len(self.connected_ws) == 0:
+            logger.info("No active OBS overlays connected; simulating throw impact for barrage/webhook triggers")
+            self._schedule_simulated_throw_hits(selected_item, amount)
 
         # Notify GTK application callback if registered
         if self.on_throw_event:
@@ -507,6 +543,11 @@ class ServerDaemon:
         self.threadsafe_broadcast(payload)
         if self.on_throw_event:
             self.on_throw_event(payload)
+
+        # Fallback simulation if no active OBS overlays are connected (e.g. desktop app testing)
+        if len(self.connected_ws) == 0:
+            logger.info("No active OBS overlays connected; simulating throw impact for barrage/webhook triggers")
+            self._schedule_simulated_throw_hits(item, amount)
 
     def threadsafe_clear(self):
         self.threadsafe_broadcast({"type": "clear"})
