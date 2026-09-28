@@ -1,11 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
-  <g fill="#2e3436">
-    <!-- Reticle target circle -->
-    <path d="M 8 1 A 7 7 0 0 0 1 8 A 7 7 0 0 0 8 15 A 7 7 0 0 0 15 8 A 7 7 0 0 0 8 1 Z M 8 3 A 5 5 0 0 1 13 8 A 5 5 0 0 1 8 13 A 5 5 0 0 1 3 8 A 5 5 0 0 1 8 3 Z"/>
-    <!-- Center bullseye -->
-    <circle cx="8" cy="8" r="2"/>
-    <!-- Incoming projectile streak -->
-    <path d="M 1 14 C 2 11 4 9 7 8 L 8 9 C 5 11 3 13 2 15 Z"/>
-    <polygon points="10,6 14,2 15,3 11,7"/>
+  <defs>
+    <style type="text/css" id="current-color-scheme">
+      .ColorScheme-Text {
+        color:#232629;
+      }
+    </style>
+  </defs>
+  <g class="ColorScheme-Text" style="fill:currentColor;fill-opacity:1;stroke:none">
+    <!-- Reticle Target Circle (Center at 10, 6) -->
+    <path d="M 10 1 C 7.24 1 5 3.24 5 6 C 5 7.15 5.39 8.21 6.04 9.06 L 7.1 8 C 6.72 7.42 6.5 6.74 6.5 6 C 6.5 4.07 8.07 2.5 10 2.5 C 11.93 2.5 13.5 4.07 13.5 6 C 13.5 7.93 11.93 9.5 10 9.5 C 9.26 9.5 8.58 9.28 8 8.9 L 6.94 9.96 C 7.79 10.61 8.85 11 10 11 C 12.76 11 15 8.76 15 6 C 15 3.24 12.76 1 10 1 Z"/>
+    <!-- Reticle Crosshair Ticks -->
+    <rect x="9.25" y="0" width="1.5" height="2"/>
+    <rect x="9.25" y="10" width="1.5" height="2"/>
+    <rect x="14" y="5.25" width="2" height="1.5"/>
+    <rect x="4" y="5.25" width="2" height="1.5"/>
+    <!-- Target Center Impact Dot -->
+    <circle cx="10" cy="6" r="1.5"/>
+    <!-- Ballistic Swoop Trail from Lower Left -->
+    <path d="M 1 15 C 2.5 14 4.5 11.5 6.5 8.5 L 7.5 9.5 C 5.5 12.5 3.5 15 1.5 15.8 Z"/>
+    <!-- Projectile (Incoming Tomato / Impact Particle) -->
+    <circle cx="7" cy="9" r="2.2"/>
+    <polygon points="5.5,7 4.5,6.5 5,5.5 6,6"/>
   </g>
 </svg>

@@ -1,104 +1,154 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
   <defs>
-    <!-- Base Plate Gradients -->
-    <linearGradient id="basePlateGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#3d3846"/>
-      <stop offset="100%" stop-color="#241f31"/>
-    </linearGradient>
-    <linearGradient id="baseLipGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e1a29"/>
-      <stop offset="100%" stop-color="#14111d"/>
+    <!-- Breeze Dark Canvas Gradient (KDE 6 Breeze Dark Palette) -->
+    <linearGradient id="canvasGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#363c42"/>
+      <stop offset="100%" stop-color="#232629"/>
     </linearGradient>
 
-    <!-- Projectile (Yeet Tomato/Rocket) Gradients -->
-    <radialGradient id="projectileGrad" cx="35%" cy="30%" r="65%">
-      <stop offset="0%" stop-color="#ff7800"/>
-      <stop offset="40%" stop-color="#e01b24"/>
-      <stop offset="100%" stop-color="#a51d2d"/>
+    <!-- 45-degree Breeze Cast Shadow -->
+    <linearGradient id="shadow45" x1="20" y1="20" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.38"/>
+      <stop offset="55%" stop-color="#000000" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Ballistic Arc Dynamic Swept Ribbon Gradient -->
+    <linearGradient id="arcGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e66100" stop-opacity="0"/>
+      <stop offset="25%" stop-color="#f67400" stop-opacity="0.65"/>
+      <stop offset="70%" stop-color="#fdbc40" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+
+    <!-- Target Reticle Gradient (Breeze Blue / Cyan) -->
+    <linearGradient id="reticleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3daee9"/>
+      <stop offset="100%" stop-color="#1d99f3"/>
+    </linearGradient>
+
+    <!-- Tomato Body Radial Gradient -->
+    <radialGradient id="tomatoGrad" cx="36%" cy="30%" r="68%">
+      <stop offset="0%" stop-color="#ff5f5f"/>
+      <stop offset="35%" stop-color="#ed1515"/>
+      <stop offset="75%" stop-color="#da4453"/>
+      <stop offset="100%" stop-color="#981724"/>
     </radialGradient>
 
-    <!-- Speed Trail Gradient -->
-    <linearGradient id="trailGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#e66100" stop-opacity="0"/>
-      <stop offset="40%" stop-color="#ff7800" stop-opacity="0.4"/>
-      <stop offset="80%" stop-color="#f6d32d" stop-opacity="0.8"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.95"/>
+    <!-- Calyx / Stem Gradient (Breeze Green) -->
+    <linearGradient id="stemGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2ecc71"/>
+      <stop offset="100%" stop-color="#1b7e42"/>
     </linearGradient>
 
-    <!-- Target Reticle Gradients -->
-    <linearGradient id="targetRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#62a0ea"/>
-      <stop offset="100%" stop-color="#1c71d8"/>
-    </linearGradient>
-
-    <!-- Drop Shadows -->
-    <filter id="plateShadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.5"/>
-    </filter>
-    <filter id="impactGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="3.5" flood-color="#f6d32d" flood-opacity="0.75"/>
-    </filter>
-    <filter id="projectileShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="-2" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.4"/>
-    </filter>
+    <!-- Canvas Rounded Clip (40x40, rx=2, offset at 4,4) -->
+    <clipPath id="canvasClip">
+      <rect x="4" y="4" width="40" height="40" rx="2" ry="2"/>
+    </clipPath>
   </defs>
 
-  <!-- ================= BASE PLATE (GNOME SQUIRCLE) ================= -->
-  <!-- Elevation Lip -->
-  <rect x="12" y="14" width="104" height="104" rx="24" fill="url(#baseLipGrad)" filter="url(#plateShadow)"/>
-  <!-- Front Surface -->
-  <rect x="12" y="12" width="104" height="102" rx="24" fill="url(#basePlateGrad)"/>
-  
-  <!-- Subtle Highlight Line on Top Edge -->
-  <path d="M 36 13 L 92 13" stroke="#ffffff" stroke-width="1" stroke-opacity="0.2" stroke-linecap="round"/>
+  <!-- ================= BASE STREAM CANVAS (KDE BREEZE TILE) ================= -->
+  <!-- Base Plate (40x40, rx=2) -->
+  <rect x="4" y="4" width="40" height="40" rx="2" ry="2" fill="url(#canvasGrad)"/>
 
-  <!-- Stream Canvas Grid Guidelines (Subtle) -->
-  <g stroke="#9a9996" stroke-width="0.75" stroke-opacity="0.15" stroke-dasharray="3 3">
-    <line x1="12" y1="46" x2="116" y2="46"/>
-    <line x1="12" y1="80" x2="116" y2="80"/>
-    <line x1="46" y1="12" x2="46" y2="114"/>
-    <line x1="82" y1="12" x2="82" y2="114"/>
+  <!-- Top 1px Highlight Edge (Breeze Style) -->
+  <path d="M 6 4.5 L 42 4.5" stroke="#ffffff" stroke-width="1" stroke-opacity="0.22" stroke-linecap="round"/>
+
+  <!-- Bottom 1px Shadow Rim (Breeze Style) -->
+  <path d="M 6 43.5 L 42 43.5" stroke="#000000" stroke-width="1" stroke-opacity="0.45" stroke-linecap="round"/>
+
+  <!-- Subtle Stream Canvas Grid Guidelines (Rule of Thirds) -->
+  <g stroke="#ffffff" stroke-width="0.75" stroke-opacity="0.05" stroke-dasharray="2 3">
+    <line x1="4" y1="17.3" x2="44" y2="17.3"/>
+    <line x1="4" y1="30.7" x2="44" y2="30.7"/>
+    <line x1="17.3" y1="4" x2="17.3" y2="44"/>
+    <line x1="30.7" y1="4" x2="30.7" y2="44"/>
   </g>
 
-  <!-- ================= TARGET RETICLE (AVATAR BOUNDARY) ================= -->
-  <g transform="translate(76, 52)">
-    <!-- Outer Reticle Ring (Capsule/Pill Target Motif) -->
-    <rect x="-24" y="-30" width="48" height="60" rx="24" fill="none" stroke="url(#targetRingGrad)" stroke-width="3" stroke-dasharray="8 4" opacity="0.85"/>
-    <!-- Inner Crosshair Center -->
-    <circle cx="0" cy="0" r="14" fill="#3584e4" fill-opacity="0.1" stroke="#62a0ea" stroke-width="2"/>
-    <circle cx="0" cy="0" r="4" fill="#62a0ea"/>
-    <!-- Crosshair Ticks -->
-    <line x1="-30" y1="0" x2="-18" y2="0" stroke="#62a0ea" stroke-width="2" stroke-linecap="round"/>
-    <line x1="18" y1="0" x2="30" y2="0" stroke="#62a0ea" stroke-width="2" stroke-linecap="round"/>
-    <line x1="0" y1="-36" x2="0" y2="-24" stroke="#62a0ea" stroke-width="2" stroke-linecap="round"/>
-    <line x1="0" y1="24" x2="0" y2="36" stroke="#62a0ea" stroke-width="2" stroke-linecap="round"/>
+  <!-- Stream Canvas Viewfinder Corners (OBS Capture Area) -->
+  <g stroke="#4e5b66" stroke-width="1.2" stroke-linecap="square" opacity="0.65">
+    <path d="M 7 11 V 7 H 11"/>
+    <path d="M 37 7 H 41 V 11"/>
+    <path d="M 7 37 V 41 H 11"/>
+    <path d="M 37 41 H 41 V 37"/>
   </g>
 
-  <!-- ================= SPEED & TRAJECTORY TRAILS ================= -->
-  <!-- Ballistic Trajectory Curve -->
-  <path d="M 20 102 C 34 94 48 76 74 54" fill="none" stroke="url(#trailGrad)" stroke-width="6" stroke-linecap="round"/>
-  <!-- Secondary Speed Streaks -->
-  <path d="M 28 108 C 42 100 54 84 66 70" fill="none" stroke="#ff7800" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <path d="M 18 90 C 30 82 44 68 62 50" fill="none" stroke="#f6d32d" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <!-- ================= TARGET RETICLE (VTUBER AVATAR COLLIDER) ================= -->
+  <!-- Outer Capsule / Pill Target Collider (Signature Yeet Feature) -->
+  <rect x="22" y="5.5" width="16" height="23" rx="8" fill="none" stroke="url(#reticleGrad)" stroke-width="1.4" stroke-dasharray="3.5 2" opacity="0.8"/>
 
-  <!-- ================= PROJECTILE (IN-FLIGHT IMPACTOR) ================= -->
-  <g transform="translate(68, 58) rotate(-35)" filter="url(#projectileShadow)">
-    <!-- Projectile Body (Dynamic Tomato / Core) -->
-    <ellipse cx="0" cy="0" rx="14" ry="12" fill="url(#projectileGrad)"/>
-    <!-- Top Highlight -->
-    <ellipse cx="-4" cy="-4" rx="6" ry="3.5" fill="#ffffff" opacity="0.6" transform="rotate(-15)"/>
-    <!-- Green Stem -->
-    <path d="M -8 -8 C -14 -12 -12 -16 -16 -16 C -13 -14 -9 -10 -7 -9 Z" fill="#33d17a"/>
-    <circle cx="-7" cy="-7" r="2.5" fill="#26a269"/>
+  <!-- Inner Reticle Crosshair Ring (Avatar Head/Chest Area) -->
+  <circle cx="30" cy="17" r="6.5" fill="#1d99f3" fill-opacity="0.1" stroke="#3daee9" stroke-width="1.2"/>
+  <circle cx="30" cy="17" r="1.8" fill="#3daee9"/>
+
+  <!-- Crosshair Ticks (Crossing Capsule Boundaries Cleanly) -->
+  <g stroke="#3daee9" stroke-width="1.2" stroke-linecap="round">
+    <line x1="18" y1="17" x2="22" y2="17"/>
+    <line x1="38" y1="17" x2="42" y2="17"/>
+    <line x1="30" y1="4.5" x2="30" y2="8.5"/>
+    <line x1="30" y1="25.5" x2="30" y2="29.5"/>
   </g>
 
-  <!-- ================= IMPACT BURST / PARTICLES ================= -->
-  <g transform="translate(76, 52)" filter="url(#impactGlow)">
-    <!-- Impact Sparks / Kinetic Stars -->
-    <polygon points="0,-16 3,-7 12,-7 5,-1 8,8 0,3 -8,8 -5,-1 -12,-7 -3,-7" fill="#ffffff" transform="scale(0.8)"/>
-    <circle cx="16" cy="-12" r="2.5" fill="#f6d32d"/>
-    <circle cx="-14" cy="-18" r="2" fill="#ff7800"/>
-    <circle cx="20" cy="10" r="1.8" fill="#ffffff"/>
-    <circle cx="10" cy="22" r="2.2" fill="#f6d32d"/>
+  <!-- ================= BREEZE 45-DEGREE CAST SHADOW ================= -->
+  <g clip-path="url(#canvasClip)">
+    <path d="M 25.5 20.5 L 44 39 L 44 44 L 33 44 L 17.5 28.5 C 19.5 23.5, 23 20.8, 25.5 20.5 Z" fill="url(#shadow45)"/>
+  </g>
+
+  <!-- ================= BALLISTIC TRAJECTORY & SPEED TRAILS ================= -->
+  <g clip-path="url(#canvasClip)">
+    <!-- Main Ballistic Swept Arc (Tapered dynamic curved ribbon) -->
+    <path d="M 8.5 37 C 10.5 33, 14.5 28, 19.5 25 L 22.5 27.5 C 16.5 32, 13 37, 10.5 39.5 Z" fill="url(#arcGrad)"/>
+    <!-- Center Core Trajectory Line -->
+    <path d="M 9 38.5 C 11.5 34, 15 29, 21 26.5" fill="none" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity="0.85"/>
+    <!-- Upper Wind Streak -->
+    <path d="M 7.5 32 C 10 28, 13 25, 17 23" fill="none" stroke="#ffd393" stroke-width="0.8" stroke-linecap="round" opacity="0.55"/>
+    <!-- Lower Speed Streak -->
+    <path d="M 12 42 C 15.5 39.5, 18.5 36, 23 33" fill="none" stroke="#f67400" stroke-width="1.1" stroke-linecap="round" opacity="0.65"/>
+    <!-- Micro Motion Dash -->
+    <path d="M 16 43 C 18.5 41, 21 38.5, 25 36" fill="none" stroke="#fdbc40" stroke-width="0.8" stroke-linecap="round" opacity="0.5"/>
+  </g>
+
+  <!-- ================= PROJECTILE (IN-FLIGHT TOMATO) ================= -->
+  <g transform="translate(21.5, 24.5) rotate(-35)">
+    <!-- Tomato Shadow Rim -->
+    <ellipse cx="0.3" cy="0.4" rx="6.5" ry="5.6" fill="#000000" opacity="0.2"/>
+    <!-- Tomato Plump Body with Top Indentation -->
+    <path d="M -0.5 -5 C -3.5 -5 -6.2 -2.5 -6.2 1 C -6.2 4.2 -3.2 5.6 0 5.6 C 3.2 5.6 6.2 4.2 6.2 1 C 6.2 -2.5 3.5 -5 0.5 -5 C 0 -4.6 -0.2 -4.6 -0.5 -5 Z" fill="url(#tomatoGrad)"/>
+    <!-- Top Crisp Crescent Highlight (Breeze Flat-2.0 Specular) -->
+    <path d="M -3.8 -2.5 C -2.5 -4.2 0.5 -4.5 2.5 -3.8 C 0.8 -3.2 -1.5 -2.8 -3 -1.8 C -3.4 -2 -3.6 -2.2 -3.8 -2.5 Z" fill="#ffffff" opacity="0.75"/>
+    <ellipse cx="-1.8" cy="-1.5" rx="2.5" ry="1.2" fill="#ffffff" opacity="0.35" transform="rotate(-10)"/>
+
+    <!-- Calyx / Green Leaves -->
+    <g fill="url(#stemGrad)">
+      <!-- Leaf Left -->
+      <path d="M 0 -4.5 C -2 -6 -4.5 -5.8 -4.8 -5 C -4.2 -4.2 -2.5 -3.8 0 -4 Z"/>
+      <!-- Leaf Right -->
+      <path d="M 0 -4.5 C 2 -6 4.5 -5.8 4.8 -5 C 4.2 -4.2 2.5 -3.8 0 -4 Z"/>
+      <!-- Leaf Down-Left -->
+      <path d="M -0.5 -4 C -2 -3 -3.5 -2.5 -3.2 -1.8 C -2.5 -2 -1.2 -2.8 -0.5 -3.5 Z"/>
+      <!-- Leaf Down-Right -->
+      <path d="M 0.5 -4 C 2 -3 3.5 -2.5 3.2 -1.8 C 2.5 -2 1.2 -2.8 0.5 -3.5 Z"/>
+      <!-- Calyx Crown Center -->
+      <circle cx="0" cy="-4.5" r="1.2" fill="#1b7e42"/>
+      <!-- Curved Stem pointing back along trajectory -->
+      <path d="M 0 -4.5 C -0.8 -6.5 -2 -7.8 -3.8 -8.2 C -3.2 -7.2 -2 -6.2 -1.2 -4.8 Z" fill="#2ecc71"/>
+    </g>
+  </g>
+
+  <!-- ================= IMPACT BURST / KINETIC PARTICLES ================= -->
+  <!-- Target Impact Point (30, 17) -->
+  <g transform="translate(30, 17)">
+    <!-- 8-Pointed Kinetic Burst Star -->
+    <polygon points="0,-5 0.9,-1.8 1.8,-1.8 1.8,-0.9 5,0 1.8,0.9 1.8,1.8 0.9,1.8 0,5 -0.9,1.8 -1.8,1.8 -1.8,0.9 -5,0 -1.8,-0.9 -1.8,-1.8 -0.9,-1.8" fill="#ffffff"/>
+    <circle cx="0" cy="0" r="1.8" fill="#fdbc40" opacity="0.6"/>
+    <!-- Splatter & Kinetic Sparks -->
+    <circle cx="5.2" cy="-3.5" r="1.1" fill="#fdbc40"/>
+    <circle cx="5.8" cy="4.5" r="0.85" fill="#ffd393"/>
+    <circle cx="-2.5" cy="-5" r="0.75" fill="#ffffff"/>
+    <circle cx="3.8" cy="7.5" r="0.9" fill="#f67400"/>
+    <circle cx="-5.5" cy="-2.5" r="0.65" fill="#fdbc40"/>
+    <circle cx="7" cy="1" r="0.7" fill="#ffd393"/>
+    <!-- Micro Impact Tomato Droplet -->
+    <ellipse cx="6.5" cy="-0.5" rx="1.2" ry="0.7" fill="#da4453" transform="rotate(28 6.5 -0.5)"/>
   </g>
 </svg>

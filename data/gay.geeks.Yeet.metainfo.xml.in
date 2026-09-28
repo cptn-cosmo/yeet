@@ -11,7 +11,7 @@
   <description>
     <p>
       Yeet is a modern, pure Wayland-native alternative to Twitch Integrated Throwing System (T.I.T.S.),
-      designed according to the GNOME Human Interface Guidelines. Built with GTK4 and Libadwaita,
+      designed according to the KDE Human Interface Guidelines. Built with Qt6,
       Yeet empowers livestreamers and VTubers to set up interactive 2D collision targets, configure throwable
       items with custom sound effects, and render physics overlays in OBS Studio.
     </p>
@@ -42,9 +42,9 @@
   </screenshots>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="1.0.0" date="2026-09-24">
+    <release version="1.0.0" date="2026-09-27">
       <description>
-        <p>Initial release of Yeet featuring Wayland-native Libadwaita UI, resolution-independent targets, REST API, and OBS overlay.</p>
+        <p>Release of Yeet featuring Wayland-native Qt6 / KDE 6 UI, resolution-independent targets, REST API, and OBS overlay.</p>
       </description>
     </release>
   </releases>

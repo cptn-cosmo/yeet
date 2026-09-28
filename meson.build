@@ -85,9 +85,12 @@ install_data(
   install_dir: datadir / 'icons/hicolor/symbolic/apps'
 )
 
+# 8. Automated Unit Test Suite
+test('Qt6 application unit tests', python, args: [meson.current_source_dir() / 'tests/test_yeet_qt.py'])
+
 # Post-install hooks
 gnome = import('gnome')
 gnome.post_install(
-  gtk_update_icon_cache: true,
+  gtk_update_icon_cache: false,
   update_desktop_database: true
 )

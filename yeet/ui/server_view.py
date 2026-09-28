@@ -1,208 +1,212 @@
 """
-Yeet - Server & OBS Integration View (Libadwaita)
+Yeet - Server & OBS Integration View (Qt6 / KDE 6)
 App ID: gay.geeks.Yeet
 """
 
-from typing import Optional, Callable
-import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, GLib, Gdk
-
+import threading
+import urllib.request
+from typing import Optional
+from ..qt_compat import QtCore, QtGui, QtWidgets, Qt, Signal, Slot
 from ..config import ConfigManager
+from .widgets import KdeCard, FormRow, KdeExpander, CodeBlock, StatusBadge
 
-class ServerView(Adw.PreferencesPage):
-    def __init__(self, config_manager: ConfigManager, on_copy_url: Optional[Callable[[str], None]] = None, on_clear_canvas=None):
-        super().__init__()
+class ServerView(QtWidgets.QWidget):
+    copyUrlRequested = Signal(str)
+    clearCanvasRequested = Signal()
+    messageNotice = Signal(str)
+
+    def __init__(self, config_manager: ConfigManager, parent=None):
+        super().__init__(parent)
         self.config_manager = config_manager
-        self.on_copy_url = on_copy_url
-        self.on_clear_canvas = on_clear_canvas
         self._updating_wh = False
 
-        self.set_title("OBS and Server")
-        self.set_icon_name("network-server-symbolic")
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # --- 1. OBS Browser Source Setup Group ---
-        obs_group = Adw.PreferencesGroup()
-        obs_group.set_title("OBS Studio Browser Source")
-        obs_group.set_description("Add this URL as a Browser Source inside OBS Studio to display the physics overlay.")
-        self.add(obs_group)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        main_layout.addWidget(scroll)
 
-        # URL Card Row
-        self.url_row = Adw.ActionRow()
-        self.url_row.set_title("Browser Source URL")
-        self.url_row.add_css_class("property")
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(16)
+        scroll.setWidget(container)
 
-        copy_btn = Gtk.Button(label="Copy URL")
-        copy_btn.set_icon_name("edit-copy-symbolic")
-        copy_btn.add_css_class("suggested-action")
-        copy_btn.connect("clicked", self._on_copy_url_clicked)
-        self.url_row.add_suffix(copy_btn)
+        # --- 1. OBS Studio Browser Source Card ---
+        obs_card = KdeCard(
+            title="OBS Studio Browser Source",
+            subtitle="Add this URL as a Browser Source inside OBS Studio to display the physics overlay."
+        )
 
-        open_btn = Gtk.Button(label="Open in Browser")
-        open_btn.set_icon_name("web-browser-symbolic")
-        open_btn.connect("clicked", self._on_open_browser_clicked)
-        self.url_row.add_suffix(open_btn)
+        url_box = QtWidgets.QHBoxLayout()
+        url_box.setSpacing(8)
 
-        obs_group.add(self.url_row)
+        self.url_edit = QtWidgets.QLineEdit()
+        self.url_edit.setReadOnly(True)
+        self.url_edit.setStyleSheet("font-family: monospace; font-size: 10pt; padding: 6px;")
+        url_box.addWidget(self.url_edit, stretch=1)
 
-        # Recommended OBS Settings Info Row
-        obs_setup_row = Adw.ExpanderRow()
-        obs_setup_row.set_title("Recommended OBS Studio Source Settings")
-        obs_setup_row.set_subtitle("Click to view optimal canvas, frame rate, and visibility settings")
-        obs_setup_row.set_icon_name("help-about-symbolic")
+        copy_btn = QtWidgets.QPushButton("Copy URL")
+        copy_btn.setIcon(QtGui.QIcon.fromTheme("edit-copy"))
+        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3daee9;
+                color: #ffffff;
+                font-weight: 600;
+                padding: 6px 14px;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        copy_btn.clicked.connect(self._on_copy_url_clicked)
+        url_box.addWidget(copy_btn)
 
-        tip_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        tip_box.set_margin_top(8)
-        tip_box.set_margin_bottom(8)
-        tip_box.set_margin_start(16)
-        tip_box.set_margin_end(16)
+        open_btn = QtWidgets.QPushButton("Open in Browser")
+        open_btn.setIcon(QtGui.QIcon.fromTheme("web-browser"))
+        open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_btn.clicked.connect(self._on_open_browser_clicked)
+        url_box.addWidget(open_btn)
 
+        obs_card.addLayout(url_box)
+
+        # Recommended OBS Settings Expander
+        obs_exp = KdeExpander("Recommended OBS Studio Source Settings", "Click to view optimal canvas, frame rate, and visibility settings", "help-about")
         tips = [
-            "• Width and Height: 1920 × 1080 (or match your base stream canvas)",
-            "• Custom Frame Rate: Checked, set to 60 FPS for buttery physics",
-            "• Control Audio via OBS: Optional (overlay plays audio natively via browser)",
-            "• Shutdown source when not visible: UNCHECKED (to maintain persistent WebSocket)",
-            "• Refresh browser when scene becomes active: UNCHECKED"
+            "• <b>Width & Height:</b> 1920 × 1080 (or match your base stream canvas)",
+            "• <b>Custom Frame Rate:</b> Checked, set to 60 FPS for smooth physics",
+            "• <b>Control Audio via OBS:</b> Optional (overlay plays audio natively via browser)",
+            "• <b>Shutdown source when not visible:</b> <b>UNCHECKED</b> (essential to keep WebSocket alive)",
+            "• <b>Refresh browser when scene becomes active:</b> <b>UNCHECKED</b>"
         ]
         for t in tips:
-            lbl = Gtk.Label(label=t, xalign=0)
-            lbl.add_css_class("dim-label")
-            tip_box.append(lbl)
+            lbl = QtWidgets.QLabel(t)
+            lbl.setTextFormat(Qt.TextFormat.RichText)
+            lbl.setStyleSheet("color: palette(placeholder-text); font-size: 9.5pt;")
+            obs_exp.addWidget(lbl)
 
-        obs_setup_row.add_row(tip_box)
-        obs_group.add(obs_setup_row)
+        obs_card.addWidget(obs_exp)
+        layout.addWidget(obs_card)
 
-        # --- 2. Live Daemon Status Group ---
-        self.status_group = Adw.PreferencesGroup()
-        self.status_group.set_title("Local Daemon Status")
-        self.add(self.status_group)
+        # --- 2. Live Daemon Status Card ---
+        self.status_card = KdeCard(
+            title="Local Daemon Status",
+            subtitle="Real-time WebSocket connection state and impact counters."
+        )
 
-        # Status & Overlays Count Row
-        self.status_row = Adw.ActionRow()
-        self.status_row.set_title("Daemon Status")
-        self.status_badge = Gtk.Label(label="Running")
-        self.status_badge.add_css_class("success")
-        self.status_row.add_suffix(self.status_badge)
-        self.status_group.add(self.status_row)
+        self.status_badge = StatusBadge()
+        self.status_card.addWidget(FormRow("Daemon State", self.status_badge, "Embedded aiohttp server thread"))
 
-        self.clients_row = Adw.ActionRow()
-        self.clients_row.set_title("Connected OBS Overlays")
-        self.clients_badge = Gtk.Label(label="0 active")
-        self.clients_badge.add_css_class("accent")
-        self.clients_row.add_suffix(self.clients_badge)
-        self.status_group.add(self.clients_row)
+        self.clients_label = QtWidgets.QLabel("0 active")
+        self.clients_label.setStyleSheet("font-weight: bold; color: #3daee9;")
+        self.status_card.addWidget(FormRow("Connected OBS Overlays", self.clients_label, "Browser sources receiving real-time events"))
 
-        self.collisions_row = Adw.ActionRow()
-        self.collisions_row.set_title("Total Collision Impacts")
-        self.collisions_badge = Gtk.Label(label="0 hits")
-        self.collisions_badge.add_css_class("accent")
-        self.collisions_row.add_suffix(self.collisions_badge)
-        self.status_group.add(self.collisions_row)
+        self.hits_label = QtWidgets.QLabel("0 hits")
+        self.hits_label.setStyleSheet("font-weight: bold; color: #27ae60;")
+        self.status_card.addWidget(FormRow("Total Collision Impacts", self.hits_label, "Cumulative hits recorded during this session"))
 
-        # Server Port Row
-        self.port_row = Adw.SpinRow()
-        self.port_row.set_title("HTTP / WebSocket Port")
-        self.port_row.set_subtitle("Default: 49122")
-        self.port_row.set_adjustment(Gtk.Adjustment(value=49122, lower=1024, upper=65535, step_increment=1, page_increment=100))
-        self.port_row.set_digits(0)
-        self.port_row.connect("notify::value", self._on_port_changed)
-        self.status_group.add(self.port_row)
+        self.port_spin = QtWidgets.QSpinBox()
+        self.port_spin.setRange(1024, 65535)
+        self.port_spin.setValue(49122)
+        self.port_spin.setMinimumWidth(120)
+        self.port_spin.valueChanged.connect(self._on_port_changed)
+        self.status_card.addWidget(FormRow("HTTP / WebSocket Port", self.port_spin, "Default: 49122"))
 
-        # Clear Canvas Button
-        clear_row = Adw.ActionRow()
-        clear_row.set_title("Emergency Overlay Reset")
-        clear_row.set_subtitle("Clears all active physics bodies from all connected browser sources")
-        clear_btn = Gtk.Button(label="Clear Canvas")
-        clear_btn.set_icon_name("edit-clear-symbolic")
-        clear_btn.add_css_class("destructive-action")
-        clear_btn.connect("clicked", lambda b: self.on_clear_canvas() if self.on_clear_canvas else None)
-        clear_row.add_suffix(clear_btn)
-        self.status_group.add(clear_row)
+        clear_btn = QtWidgets.QPushButton("Clear Canvas")
+        clear_btn.setIcon(QtGui.QIcon.fromTheme("edit-clear"))
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #da4453;
+                color: #ffffff;
+                font-weight: 600;
+                padding: 6px 14px;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        clear_btn.clicked.connect(lambda: self.clearCanvasRequested.emit())
+        self.status_card.addWidget(FormRow("Emergency Overlay Reset", clear_btn, "Removes all active physics bodies from connected overlays"))
 
-        # --- 3. Collision Webhooks (First & Last Hit) Group ---
-        self.webhook_group = Adw.PreferencesGroup()
-        self.webhook_group.set_title("Collision Webhooks (First and Last Hit)")
-        self.webhook_group.set_description("Trigger external URLs on the initial impact and when the barrage settles (e.g. for VTube Studio expressions or lighting).")
-        self.add(self.webhook_group)
+        layout.addWidget(self.status_card)
 
-        # Switch to enable webhooks
-        self.webhook_switch = Adw.SwitchRow()
-        self.webhook_switch.set_title("Enable Outbound Webhooks")
-        self.webhook_switch.set_subtitle("Dispatches HTTP requests upon target collisions")
-        self.webhook_switch.connect("notify::active", self._on_webhook_changed)
-        self.webhook_group.add(self.webhook_switch)
+        # --- 3. Collision Webhooks (First & Last Hit) Card ---
+        self.webhook_card = KdeCard(
+            title="Collision Webhooks (First and Last Hit)",
+            subtitle="Trigger external URLs upon initial impact and after the barrage settles (ideal for VTube Studio or smart lights)."
+        )
 
-        # First Hit URL
-        self.first_url_row = Adw.EntryRow()
-        self.first_url_row.set_title("First Hit URL")
-        self.first_url_row.connect("changed", self._on_webhook_changed)
-        self.webhook_group.add(self.first_url_row)
+        self.wh_enabled_check = QtWidgets.QCheckBox("Enable Outbound Webhooks")
+        self.wh_enabled_check.toggled.connect(self._on_webhook_changed)
+        self.webhook_card.addWidget(FormRow("Outbound Webhooks", self.wh_enabled_check, "Dispatches HTTP requests on collisions"))
 
-        # First Hit Method
-        self.first_method_row = Adw.ComboRow()
-        self.first_method_row.set_title("First Hit HTTP Method")
-        self.first_method_row.set_model(Gtk.StringList.new(["GET", "POST"]))
-        self.first_method_row.connect("notify::selected", self._on_webhook_changed)
-        self.webhook_group.add(self.first_method_row)
+        self.first_url_edit = QtWidgets.QLineEdit()
+        self.first_url_edit.setPlaceholderText("http://127.0.0.1:8001/vts/hotkey?id=Expression_Dizzy")
+        self.first_url_edit.textChanged.connect(self._on_webhook_changed)
+        self.webhook_card.addWidget(FormRow("First Hit URL", self.first_url_edit, "Fires on the very first impact of a throw"))
 
-        # Last Hit URL
-        self.last_url_row = Adw.EntryRow()
-        self.last_url_row.set_title("Last Hit URL")
-        self.last_url_row.connect("changed", self._on_webhook_changed)
-        self.webhook_group.add(self.last_url_row)
+        self.first_method_combo = QtWidgets.QComboBox()
+        self.first_method_combo.addItems(["GET", "POST"])
+        self.first_method_combo.currentIndexChanged.connect(self._on_webhook_changed)
+        self.webhook_card.addWidget(FormRow("First Hit Method", self.first_method_combo, "HTTP Request Method"))
 
-        # Last Hit Method
-        self.last_method_row = Adw.ComboRow()
-        self.last_method_row.set_title("Last Hit HTTP Method")
-        self.last_method_row.set_model(Gtk.StringList.new(["GET", "POST"]))
-        self.last_method_row.connect("notify::selected", self._on_webhook_changed)
-        self.webhook_group.add(self.last_method_row)
+        self.last_url_edit = QtWidgets.QLineEdit()
+        self.last_url_edit.setPlaceholderText("http://127.0.0.1:8001/vts/hotkey?id=Expression_Neutral")
+        self.last_url_edit.textChanged.connect(self._on_webhook_changed)
+        self.webhook_card.addWidget(FormRow("Last Hit URL", self.last_url_edit, "Fires when the barrage settles"))
 
-        # Barrage Settling Delay
-        self.delay_row = Adw.SpinRow()
-        self.delay_row.set_title("Barrage Settling Delay (seconds)")
-        self.delay_row.set_subtitle("Quiet period after a collision before triggering the Last Hit URL")
-        self.delay_row.set_adjustment(Gtk.Adjustment(value=2.0, lower=0.5, upper=10.0, step_increment=0.5, page_increment=1.0))
-        self.delay_row.set_digits(1)
-        self.delay_row.connect("notify::value", self._on_webhook_changed)
-        self.webhook_group.add(self.delay_row)
+        self.last_method_combo = QtWidgets.QComboBox()
+        self.last_method_combo.addItems(["GET", "POST"])
+        self.last_method_combo.currentIndexChanged.connect(self._on_webhook_changed)
+        self.webhook_card.addWidget(FormRow("Last Hit Method", self.last_method_combo, "HTTP Request Method"))
 
-        # Webhook Testing Action Row
-        wh_test_row = Adw.ActionRow()
-        wh_test_row.set_title("Test Webhook Triggers")
-        wh_test_row.set_subtitle("Supports {target}, {item}, and {hits} URL replacements")
+        self.delay_spin = QtWidgets.QDoubleSpinBox()
+        self.delay_spin.setRange(0.5, 10.0)
+        self.delay_spin.setSingleStep(0.5)
+        self.delay_spin.setDecimals(1)
+        self.delay_spin.setSuffix(" s")
+        self.delay_spin.setMinimumWidth(120)
+        self.delay_spin.valueChanged.connect(self._on_webhook_changed)
+        self.webhook_card.addWidget(FormRow("Barrage Settling Delay", self.delay_spin, "Silence duration after impact before triggering Last Hit"))
 
-        first_test_btn = Gtk.Button(label="Test First Hit")
-        first_test_btn.set_icon_name("media-playback-start-symbolic")
-        first_test_btn.connect("clicked", lambda b: self._test_webhook("first_hit"))
-        wh_test_row.add_suffix(first_test_btn)
+        # Webhook Testing Row
+        test_wh_box = QtWidgets.QHBoxLayout()
+        test_wh_box.setSpacing(8)
 
-        last_test_btn = Gtk.Button(label="Test Last Hit")
-        last_test_btn.set_icon_name("media-playback-stop-symbolic")
-        last_test_btn.connect("clicked", lambda b: self._test_webhook("last_hit"))
-        wh_test_row.add_suffix(last_test_btn)
+        test_first_btn = QtWidgets.QPushButton("Test First Hit")
+        test_first_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-start"))
+        test_first_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        test_first_btn.clicked.connect(lambda: self._test_webhook("first_hit"))
+        test_wh_box.addWidget(test_first_btn)
 
-        self.webhook_group.add(wh_test_row)
+        test_last_btn = QtWidgets.QPushButton("Test Last Hit")
+        test_last_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))
+        test_last_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        test_last_btn.clicked.connect(lambda: self._test_webhook("last_hit"))
+        test_wh_box.addWidget(test_last_btn)
 
-        # --- 4. REST API & Bot Integration Documentation ---
-        api_group = Adw.PreferencesGroup()
-        api_group.set_title("REST API and Bot Triggers")
-        api_group.set_description("Control Yeet programmatically using Streamer.bot, MixItUp, SAMMI, or curl.")
-        self.add(api_group)
+        test_wh_box.addStretch()
+        self.webhook_card.addWidget(FormRow("Test Webhook Triggers", QtWidgets.QWidget()))
+        self.webhook_card.addLayout(test_wh_box)
 
-        # POST /api/v1/throw Expander (JSON)
-        throw_exp = Adw.ExpanderRow()
-        throw_exp.set_title("POST /api/v1/throw (JSON Body)")
-        throw_exp.set_subtitle("Spawn items using JSON payload (for Streamer.bot, webhooks, or scripts)")
+        layout.addWidget(self.webhook_card)
 
-        throw_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        throw_box.set_margin_top(8)
-        throw_box.set_margin_bottom(8)
-        throw_box.set_margin_start(16)
-        throw_box.set_margin_end(16)
+        # --- 4. REST API & Bot Triggers Card ---
+        api_card = KdeCard(
+            title="REST API and Bot Triggers",
+            subtitle="Trigger throws and collisions programmatically using Streamer.bot, MixItUp, SAMMI, or curl."
+        )
 
-        curl_throw = (
+        # POST /api/v1/throw
+        post_throw_exp = KdeExpander("POST /api/v1/throw (JSON Body)", "Trigger throws using JSON payload", "applications-internet")
+        curl_post_throw = (
             'curl -X POST http://127.0.0.1:49122/api/v1/throw \\\n'
             '  -H "Content-Type: application/json" \\\n'
             '  -d \'{\n'
@@ -213,185 +217,42 @@ class ServerView(Adw.PreferencesPage):
             '    "spread": 15.0\n'
             '  }\''
         )
-        curl_lbl = Gtk.Label(label=curl_throw, xalign=0)
-        curl_lbl.add_css_class("monospace")
-        curl_lbl.set_selectable(True)
-        throw_box.append(curl_lbl)
+        post_throw_exp.addWidget(CodeBlock(curl_post_throw))
+        api_card.addWidget(post_throw_exp)
 
-        throw_copy_btn = Gtk.Button(label="Copy curl Command")
-        throw_copy_btn.set_icon_name("edit-copy-symbolic")
-        throw_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_throw))
-        throw_box.append(throw_copy_btn)
+        # GET /api/v1/throw
+        get_throw_exp = KdeExpander("GET /api/v1/throw (URL Query Parameters)", "Trigger throws via URL query string (chat bot bookmarks)", "applications-internet")
+        curl_get_throw = 'curl "http://127.0.0.1:49122/api/v1/throw?item=beachball&amount=3&spawn_direction=rain&force=1.2"'
+        get_throw_exp.addWidget(CodeBlock(curl_get_throw))
+        api_card.addWidget(get_throw_exp)
 
-        throw_exp.add_row(throw_box)
-        api_group.add(throw_exp)
+        # GET /api/v1/throw (Random Mix)
+        mix_throw_exp = KdeExpander("GET /api/v1/throw (Random Mix & Group Filters)", "Barrage where projectiles are randomly picked from filtered pools", "applications-internet")
+        curl_mix_throw = 'curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter&amount=5"'
+        mix_throw_exp.addWidget(CodeBlock(curl_mix_throw))
+        api_card.addWidget(mix_throw_exp)
 
-        # GET /api/v1/throw Expander (URL Query Parameters)
-        query_exp = Adw.ExpanderRow()
-        query_exp.set_title("GET /api/v1/throw (URL Query Parameters)")
-        query_exp.set_subtitle("Trigger throws directly via URL parameters in browser links, Nightbot, or GET requests")
-
-        query_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        query_box.set_margin_top(8)
-        query_box.set_margin_bottom(8)
-        query_box.set_margin_start(16)
-        query_box.set_margin_end(16)
-
-        curl_query = 'curl "http://127.0.0.1:49122/api/v1/throw?item=beachball&amount=3&spawn_direction=rain&force=1.2"'
-        query_lbl = Gtk.Label(label=curl_query, xalign=0)
-        query_lbl.add_css_class("monospace")
-        query_lbl.set_selectable(True)
-        query_box.append(query_lbl)
-
-        query_copy_btn = Gtk.Button(label="Copy GET Request")
-        query_copy_btn.set_icon_name("edit-copy-symbolic")
-        query_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_query))
-        query_box.append(query_copy_btn)
-
-        query_exp.add_row(query_box)
-        api_group.add(query_exp)
-
-        # GET /api/v1/throw (Random Mix, Groups and Exclusions) Expander
-        mix_exp = Adw.ExpanderRow()
-        mix_exp.set_title("GET /api/v1/throw (Random Mix, Groups and Exclusions)")
-        mix_exp.set_subtitle("Barrage where each item is selected randomly from a pool or group with exclusions")
-
-        mix_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        mix_box.set_margin_top(8)
-        mix_box.set_margin_bottom(8)
-        mix_box.set_margin_start(16)
-        mix_box.set_margin_end(16)
-
-        curl_mix = 'curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter&amount=5"'
-        mix_lbl = Gtk.Label(label=curl_mix, xalign=0)
-        mix_lbl.add_css_class("monospace")
-        mix_lbl.set_selectable(True)
-        mix_box.append(mix_lbl)
-
-        mix_copy_btn = Gtk.Button(label="Copy Random Mix Request")
-        mix_copy_btn.set_icon_name("edit-copy-symbolic")
-        mix_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_mix))
-        mix_box.append(mix_copy_btn)
-
-        mix_exp.add_row(mix_box)
-        api_group.add(mix_exp)
-
-        # POST /api/v1/clear Expander
-        clear_exp = Adw.ExpanderRow()
-        clear_exp.set_title("POST /api/v1/clear")
-        clear_exp.set_subtitle("Removes all active bodies immediately from the overlay")
-
-        clear_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        clear_box.set_margin_top(8)
-        clear_box.set_margin_bottom(8)
-        clear_box.set_margin_start(16)
-        clear_box.set_margin_end(16)
-
+        # POST /api/v1/clear
+        clear_api_exp = KdeExpander("POST /api/v1/clear (Clear Canvas)", "Immediately despawn all active physics bodies", "edit-clear")
         curl_clear = 'curl -X POST http://127.0.0.1:49122/api/v1/clear'
-        clear_lbl = Gtk.Label(label=curl_clear, xalign=0)
-        clear_lbl.add_css_class("monospace")
-        clear_lbl.set_selectable(True)
-        clear_box.append(clear_lbl)
+        clear_api_exp.addWidget(CodeBlock(curl_clear))
+        api_card.addWidget(clear_api_exp)
 
-        clear_copy_btn = Gtk.Button(label="Copy curl Command")
-        clear_copy_btn.set_icon_name("edit-copy-symbolic")
-        clear_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_clear))
-        clear_box.append(clear_copy_btn)
+        # GET /api/v1/collision
+        coll_api_exp = KdeExpander("GET /api/v1/collision (Trigger Direct Hit)", "Simulate immediate impact sound and burst without projectile delay", "dialog-information")
+        curl_coll = 'curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=beachball&sound=pop"'
+        coll_api_exp.addWidget(CodeBlock(curl_coll))
+        api_card.addWidget(coll_api_exp)
 
-        clear_exp.add_row(clear_box)
-        api_group.add(clear_exp)
+        # GET /api/v1/collisions
+        stats_api_exp = KdeExpander("GET /api/v1/collisions (Query Hit Statistics)", "Retrieve total hits, breakdown by target, and recent log", "view-statistics")
+        curl_stats = 'curl http://127.0.0.1:49122/api/v1/collisions'
+        stats_api_exp.addWidget(CodeBlock(curl_stats))
+        api_card.addWidget(stats_api_exp)
 
-        # GET /api/v1/items Expander
-        items_exp = Adw.ExpanderRow()
-        items_exp.set_title("GET /api/v1/items")
-        items_exp.set_subtitle("List configured items and their metadata")
+        layout.addWidget(api_card)
+        layout.addStretch()
 
-        items_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        items_box.set_margin_top(8)
-        items_box.set_margin_bottom(8)
-        items_box.set_margin_start(16)
-        items_box.set_margin_end(16)
-
-        curl_items = 'curl http://127.0.0.1:49122/api/v1/items'
-        items_lbl = Gtk.Label(label=curl_items, xalign=0)
-        items_lbl.add_css_class("monospace")
-        items_lbl.set_selectable(True)
-        items_box.append(items_lbl)
-
-        items_exp.add_row(items_box)
-        api_group.add(items_exp)
-
-        # GET /api/v1/status Expander
-        status_exp = Adw.ExpanderRow()
-        status_exp.set_title("GET /api/v1/status")
-        status_exp.set_subtitle("Health check, daemon uptime, and connected OBS overlay count")
-
-        status_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        status_box.set_margin_top(8)
-        status_box.set_margin_bottom(8)
-        status_box.set_margin_start(16)
-        status_box.set_margin_end(16)
-
-        curl_status = 'curl http://127.0.0.1:49122/api/v1/status'
-        status_api_lbl = Gtk.Label(label=curl_status, xalign=0)
-        status_api_lbl.add_css_class("monospace")
-        status_api_lbl.set_selectable(True)
-        status_box.append(status_api_lbl)
-
-        status_exp.add_row(status_box)
-        api_group.add(status_exp)
-
-        # GET /api/v1/collision Expander
-        coll_trigger_exp = Adw.ExpanderRow()
-        coll_trigger_exp.set_title("GET /api/v1/collision (Trigger Direct Hit)")
-        coll_trigger_exp.set_subtitle("Simulate an immediate impact/bonk sound and visual burst on an avatar target")
-
-        coll_trigger_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        coll_trigger_box.set_margin_top(8)
-        coll_trigger_box.set_margin_bottom(8)
-        coll_trigger_box.set_margin_start(16)
-        coll_trigger_box.set_margin_end(16)
-
-        curl_coll_trigger = 'curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=beachball&sound=pop"'
-        coll_trigger_lbl = Gtk.Label(label=curl_coll_trigger, xalign=0)
-        coll_trigger_lbl.add_css_class("monospace")
-        coll_trigger_lbl.set_selectable(True)
-        coll_trigger_box.append(coll_trigger_lbl)
-
-        coll_trigger_copy_btn = Gtk.Button(label="Copy GET Collision Request")
-        coll_trigger_copy_btn.set_icon_name("edit-copy-symbolic")
-        coll_trigger_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_coll_trigger))
-        coll_trigger_box.append(coll_trigger_copy_btn)
-
-        coll_trigger_exp.add_row(coll_trigger_box)
-        api_group.add(coll_trigger_exp)
-
-        # GET /api/v1/collisions Expander
-        coll_stats_exp = Adw.ExpanderRow()
-        coll_stats_exp.set_title("GET /api/v1/collisions (Query Hit Statistics)")
-        coll_stats_exp.set_subtitle("Retrieve total collision count, breakdown by target, and recent hits log")
-
-        coll_stats_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        coll_stats_box.set_margin_top(8)
-        coll_stats_box.set_margin_bottom(8)
-        coll_stats_box.set_margin_start(16)
-        coll_stats_box.set_margin_end(16)
-
-        curl_coll_stats = 'curl http://127.0.0.1:49122/api/v1/collisions'
-        coll_stats_lbl = Gtk.Label(label=curl_coll_stats, xalign=0)
-        coll_stats_lbl.add_css_class("monospace")
-        coll_stats_lbl.set_selectable(True)
-        coll_stats_box.append(coll_stats_lbl)
-
-        coll_stats_copy_btn = Gtk.Button(label="Copy curl Command")
-        coll_stats_copy_btn.set_icon_name("edit-copy-symbolic")
-        coll_stats_copy_btn.connect("clicked", lambda b: self._copy_to_clipboard(curl_coll_stats))
-        coll_stats_box.append(coll_stats_copy_btn)
-
-        coll_stats_exp.add_row(coll_stats_box)
-        api_group.add(coll_stats_exp)
-
-        # Refresh URL
         self.update_url_display()
 
     def get_overlay_url(self) -> str:
@@ -400,20 +261,31 @@ class ServerView(Adw.PreferencesPage):
 
     def update_url_display(self):
         url = self.get_overlay_url()
-        self.url_row.set_subtitle(url)
-        self.port_row.set_value(self.config_manager.server.port)
+        self.url_edit.setText(url)
+        self.port_spin.setValue(self.config_manager.server.port)
         self._refresh_webhooks()
+
+    def update_connected_clients(self, count: int):
+        self.clients_label.setText(f"{count} active")
+        if count > 0:
+            self.status_badge.setStatus("connected", f"OBS Connected ({count})")
+        else:
+            port = self.config_manager.server.port
+            self.status_badge.setStatus("ready", f"Ready :{port}")
+
+    def update_collision_count(self, count: int):
+        self.hits_label.setText(f"{count} hits")
 
     def _refresh_webhooks(self):
         wh = self.config_manager.webhooks
         self._updating_wh = True
         try:
-            self.webhook_switch.set_active(wh.enabled)
-            self.first_url_row.set_text(wh.first_hit_url or "")
-            self.first_method_row.set_selected(0 if (wh.first_hit_method or "GET").upper() == "GET" else 1)
-            self.last_url_row.set_text(wh.last_hit_url or "")
-            self.last_method_row.set_selected(0 if (wh.last_hit_method or "GET").upper() == "GET" else 1)
-            self.delay_row.set_value(wh.settling_delay or 2.0)
+            self.wh_enabled_check.setChecked(wh.enabled)
+            self.first_url_edit.setText(wh.first_hit_url or "")
+            self.first_method_combo.setCurrentIndex(0 if (wh.first_hit_method or "GET").upper() == "GET" else 1)
+            self.last_url_edit.setText(wh.last_hit_url or "")
+            self.last_method_combo.setCurrentIndex(0 if (wh.last_hit_method or "GET").upper() == "GET" else 1)
+            self.delay_spin.setValue(wh.settling_delay or 2.0)
         finally:
             self._updating_wh = False
 
@@ -421,12 +293,12 @@ class ServerView(Adw.PreferencesPage):
         if self._updating_wh:
             return
         wh = self.config_manager.webhooks
-        wh.enabled = self.webhook_switch.get_active()
-        wh.first_hit_url = self.first_url_row.get_text().strip()
-        wh.first_hit_method = "GET" if self.first_method_row.get_selected() == 0 else "POST"
-        wh.last_hit_url = self.last_url_row.get_text().strip()
-        wh.last_hit_method = "GET" if self.last_method_row.get_selected() == 0 else "POST"
-        wh.settling_delay = float(self.delay_row.get_value())
+        wh.enabled = self.wh_enabled_check.isChecked()
+        wh.first_hit_url = self.first_url_edit.text().strip()
+        wh.first_hit_method = self.first_method_combo.currentText()
+        wh.last_hit_url = self.last_url_edit.text().strip()
+        wh.last_method_combo = self.last_method_combo.currentText()
+        wh.settling_delay = self.delay_spin.value()
         self.config_manager.save()
 
     def _test_webhook(self, event_type: str):
@@ -435,50 +307,48 @@ class ServerView(Adw.PreferencesPage):
 
         def _worker():
             try:
-                import urllib.request
-                req = urllib.request.Request(url, headers={"User-Agent": "Yeet-App"})
+                req = urllib.request.Request(url, headers={"User-Agent": "Yeet-Qt-App"})
                 with urllib.request.urlopen(req, timeout=3.0) as resp:
                     pass
-                GLib.idle_add(self._notify_test_result, event_type, True)
+                QtCore.QMetaObject.invokeMethod(
+                    self,
+                    "_notify_test_success",
+                    QtCore.Qt.ConnectionType.QueuedConnection,
+                    QtCore.Q_ARG(str, event_type)
+                )
             except Exception as e:
-                GLib.idle_add(self._notify_test_result, event_type, False, str(e))
+                QtCore.QMetaObject.invokeMethod(
+                    self,
+                    "_notify_test_error",
+                    QtCore.Qt.ConnectionType.QueuedConnection,
+                    QtCore.Q_ARG(str, event_type),
+                    QtCore.Q_ARG(str, str(e))
+                )
 
-        import threading
         threading.Thread(target=_worker, daemon=True).start()
 
-    def _notify_test_result(self, event_type: str, success: bool, err_msg: str = ""):
+    @Slot(str)
+    def _notify_test_success(self, event_type: str):
         event_name = "First Hit" if event_type == "first_hit" else "Last Hit"
-        root = self.get_root()
-        if success:
-            msg = f"Dispatched {event_name} test webhook!"
-        else:
-            msg = f"Failed to test {event_name}: {err_msg}"
-        if root and hasattr(root, "show_toast"):
-            root.show_toast(msg)
+        self.messageNotice.emit(f"Dispatched {event_name} test webhook!")
 
-    def update_connected_clients(self, count: int):
-        self.clients_badge.set_text(f"{count} active")
+    @Slot(str, str)
+    def _notify_test_error(self, event_type: str, err: str):
+        event_name = "First Hit" if event_type == "first_hit" else "Last Hit"
+        self.messageNotice.emit(f"Failed to dispatch {event_name}: {err}")
 
-    def update_collision_count(self, count: int):
-        self.collisions_badge.set_text(f"{count} hits")
-
-    def _on_port_changed(self, row, pspec):
-        val = int(self.port_row.get_value())
+    def _on_port_changed(self, val: int):
         if val != self.config_manager.server.port:
             self.config_manager.server.port = val
             self.config_manager.save()
             self.update_url_display()
 
-    def _copy_to_clipboard(self, text: str):
-        clipboard = Gdk.Display.get_default().get_clipboard()
-        clipboard.set(text)
-        if self.on_copy_url:
-            self.on_copy_url(text)
-
-    def _on_copy_url_clicked(self, btn):
-        self._copy_to_clipboard(self.get_overlay_url())
-
-    def _on_open_browser_clicked(self, btn):
+    def _on_copy_url_clicked(self):
         url = self.get_overlay_url()
-        Gtk.show_uri(self.get_root(), url, Gdk.CURRENT_TIME)
+        clipboard = QtWidgets.QApplication.clipboard()
+        clipboard.setText(url)
+        self.copyUrlRequested.emit(url)
 
+    def _on_open_browser_clicked(self):
+        url = self.get_overlay_url()
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))

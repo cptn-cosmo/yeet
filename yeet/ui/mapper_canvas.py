@@ -1,396 +1,377 @@
 """
-Yeet - Interactive 2D Coordinate Mapper Canvas (GTK4 + Cairo)
+Yeet - Interactive 2D Coordinate Mapper Canvas (Qt6 + QPainter)
 App ID: gay.geeks.Yeet
 """
 
 import math
-from typing import List, Optional, Callable, Tuple
-import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Gdk', '4.0')
-from gi.repository import Gtk, Gdk, GLib
-import cairo
-
+from typing import List, Optional, Tuple
+from ..qt_compat import QtCore, QtGui, QtWidgets, Qt, Signal, QPoint, QPointF, QRect, QRectF
 from ..models import Target
 
-class MapperCanvas(Gtk.DrawingArea):
-    def __init__(self, on_target_changed: Optional[Callable[[Target], None]] = None):
-        super().__init__()
-        self.on_target_changed = on_target_changed
+class MapperCanvas(QtWidgets.QWidget):
+    targetChanged = Signal(object)    # Emits Target
+    targetSelected = Signal(str)      # Emits target ID
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setMinimumSize(480, 270)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+
         self.targets: List[Target] = []
         self.selected_target_id: Optional[str] = None
         self.active_spawn_direction: str = "random"
         self.show_grid: bool = True
         self.show_trajectory: bool = True
-        self.background_pixbuf = None
+        self.background_pixmap: Optional[QtGui.QPixmap] = None
 
         # Drag state tracking
-        self.active_drag_handle = None  # None, 'center', 'resize_se', 'rotate', 'poly_vertex_<i>'
-        self.drag_start_x = 0.0
-        self.drag_start_y = 0.0
+        self.active_drag_handle: Optional[str] = None
+        self.drag_start_pos = QPointF(0.0, 0.0)
         self.initial_target_state = {}
 
-        self.set_content_width(640)
-        self.set_content_height(360)
-        self.set_hexpand(True)
-        self.set_vexpand(False)
-        self.set_focusable(True)
+    def sizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(640, 360)
 
-        self.set_draw_func(self._draw_func)
+    def hasHeightForWidth(self) -> bool:
+        return True
 
-        # Gestures for mouse interaction
-        click_gesture = Gtk.GestureClick.new()
-        click_gesture.set_button(0)  # All mouse buttons
-        click_gesture.connect("pressed", self._on_pressed)
-        self.add_controller(click_gesture)
+    def heightForWidth(self, w: int) -> int:
+        return int(w * 9 / 16)
 
-        drag_gesture = Gtk.GestureDrag.new()
-        drag_gesture.connect("drag-begin", self._on_drag_begin)
-        drag_gesture.connect("drag-update", self._on_drag_update)
-        drag_gesture.connect("drag-end", self._on_drag_end)
-        self.add_controller(drag_gesture)
-
-        motion_controller = Gtk.EventControllerMotion.new()
-        motion_controller.connect("motion", self._on_motion)
-        self.add_controller(motion_controller)
-
-    def set_targets(self, targets: List[Target], selected_id: Optional[str] = None):
+    def setTargets(self, targets: List[Target], selected_id: Optional[str] = None):
         self.targets = targets
         if selected_id:
             self.selected_target_id = selected_id
         elif targets and not self.selected_target_id:
             self.selected_target_id = targets[0].id
-        self.queue_draw()
+        self.update()
 
-    def get_selected_target(self) -> Optional[Target]:
+    def getSelectedTarget(self) -> Optional[Target]:
         for t in self.targets:
             if t.id == self.selected_target_id:
                 return t
         return None
 
-    def select_target(self, target_id: str):
-        self.selected_target_id = target_id
-        self.queue_draw()
+    def selectTarget(self, target_id: str):
+        if self.selected_target_id != target_id:
+            self.selected_target_id = target_id
+            self.targetSelected.emit(target_id)
+            self.update()
 
-    def set_spawn_direction(self, direction: str):
+    def setSpawnDirection(self, direction: str):
         self.active_spawn_direction = direction
-        self.queue_draw()
+        self.update()
 
-    # --- Coordinate Conversion Helpers ---
-    def _norm_to_px(self, nx: float, ny: float, w: int, h: int) -> Tuple[float, float]:
-        return nx * w, ny * h
+    def setShowGrid(self, show: bool):
+        self.show_grid = show
+        self.update()
 
-    def _px_to_norm(self, px: float, py: float, w: int, h: int) -> Tuple[float, float]:
+    def setShowTrajectory(self, show: bool):
+        self.show_trajectory = show
+        self.update()
+
+    def setBackdropPixmap(self, pixmap: Optional[QtGui.QPixmap]):
+        self.background_pixmap = pixmap
+        self.update()
+
+    # --- Coordinate Conversion ---
+    def _norm_to_px(self, nx: float, ny: float, w: float, h: float) -> QPointF:
+        return QPointF(nx * w, ny * h)
+
+    def _px_to_norm(self, px: float, py: float, w: float, h: float) -> Tuple[float, float]:
         return max(0.0, min(1.0, px / w)), max(0.0, min(1.0, py / h))
 
-    # --- GTK4 Drawing Routine ---
-    def _draw_func(self, area, cr: cairo.Context, width: int, height: int):
-        # 1. Background Fill (Dark Slate Stream Layout)
-        cr.set_source_rgb(0.12, 0.12, 0.16)
-        cr.paint()
+    # --- Paint Event ---
+    def paintEvent(self, event: QtGui.QPaintEvent):
+        w = float(self.width())
+        h = float(self.height())
 
-        # Custom Background Image (Stream Screenshot) if loaded
-        if self.background_pixbuf:
-            cr.save()
-            Gdk.cairo_set_source_pixbuf(cr, self.background_pixbuf, 0, 0)
-            cr.paint()
-            cr.restore()
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.TextAntialiasing, True)
+
+        # 1. Background Fill (Dark Slate Stream Viewport)
+        painter.fillRect(self.rect(), QtGui.QColor(28, 30, 38))
+
+        # Backdrop Screenshot if loaded
+        if self.background_pixmap and not self.background_pixmap.isNull():
+            scaled = self.background_pixmap.scaled(
+                int(w), int(h),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            painter.drawPixmap(0, 0, scaled)
 
         # 2. Grid Guidelines (10% increments)
         if self.show_grid:
-            cr.save()
-            cr.set_source_rgba(0.9, 0.9, 1.0, 0.08)
-            cr.set_line_width(1.0)
-            cr.set_dash([4.0, 4.0])
+            self._draw_grid(painter, w, h)
 
-            for i in range(1, 10):
-                gx = (i / 10.0) * width
-                gy = (i / 10.0) * height
-                # Vertical grid lines
-                cr.move_to(gx, 0)
-                cr.line_to(gx, height)
-                # Horizontal grid lines
-                cr.move_to(0, gy)
-                cr.line_to(width, gy)
-            cr.stroke()
-
-            # Center Crosshair
-            cr.set_source_rgba(0.35, 0.55, 0.95, 0.25)
-            cr.set_dash([])
-            cr.set_line_width(1.5)
-            cr.move_to(width * 0.5, 0)
-            cr.line_to(width * 0.5, height)
-            cr.move_to(0, height * 0.5)
-            cr.line_to(width, height * 0.5)
-            cr.stroke()
-            cr.restore()
-
-        # 3. Spawn Zone Indicators
-        self._draw_spawn_zones(cr, width, height)
+        # 3. Spawn Zone Edge Indicators
+        self._draw_spawn_zones(painter, w, h)
 
         # 4. Trajectory Preview Guide
         if self.show_trajectory:
-            self._draw_trajectory(cr, width, height)
+            self._draw_trajectory(painter, w, h)
 
         # 5. Render Targets
         for tgt in self.targets:
             is_selected = (tgt.id == self.selected_target_id)
-            self._draw_target(cr, tgt, width, height, is_selected)
+            self._draw_target(painter, tgt, w, h, is_selected)
 
         # 6. Stream Resolution & Aspect Ratio Badge
-        cr.save()
-        cr.set_source_rgba(1.0, 1.0, 1.0, 0.45)
-        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-        cr.set_font_size(11.0)
-        cr.move_to(12, 22)
-        cr.show_text(f"16:9 Stream Viewport (OBS) | Normalized Rel [0.0 - 1.0]")
-        cr.restore()
+        painter.save()
+        painter.setPen(QtGui.QColor(255, 255, 255, 140))
+        font = painter.font()
+        font.setPixelSize(11)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(14, 22, "16:9 Stream Viewport (OBS) | Normalized Rel [0.0 - 1.0]")
+        painter.restore()
 
-    def _draw_spawn_zones(self, cr: cairo.Context, w: int, h: int):
-        cr.save()
+        # Canvas Border
+        painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255, 30), 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+
+    def _draw_grid(self, painter: QtGui.QPainter, w: float, h: float):
+        painter.save()
+        grid_pen = QtGui.QPen(QtGui.QColor(230, 230, 255, 20), 1.0, Qt.PenStyle.DashLine)
+        grid_pen.setDashPattern([4, 4])
+        painter.setPen(grid_pen)
+
+        for i in range(1, 10):
+            gx = (i / 10.0) * w
+            gy = (i / 10.0) * h
+            painter.drawLine(QPointF(gx, 0), QPointF(gx, h))
+            painter.drawLine(QPointF(0, gy), QPointF(w, gy))
+
+        # Center Crosshair
+        center_pen = QtGui.QPen(QtGui.QColor(61, 174, 233, 70), 1.5)
+        painter.setPen(center_pen)
+        painter.drawLine(QPointF(w * 0.5, 0), QPointF(w * 0.5, h))
+        painter.drawLine(QPointF(0, h * 0.5), QPointF(w, h * 0.5))
+        painter.restore()
+
+    def _draw_spawn_zones(self, painter: QtGui.QPainter, w: float, h: float):
+        painter.save()
         dir_name = self.active_spawn_direction.lower()
-
-        # Highlight active spawn edge or emitter
-        cr.set_source_rgba(0.96, 0.83, 0.18, 0.4)
-        cr.set_line_width(4.0)
+        pen = QtGui.QPen(QtGui.QColor(246, 187, 66, 140), 4.0)
+        painter.setPen(pen)
 
         if dir_name in ['left', 'random']:
-            cr.move_to(2, 0); cr.line_to(2, h); cr.stroke()
+            painter.drawLine(QPointF(2, 0), QPointF(2, h))
         if dir_name in ['right', 'random']:
-            cr.move_to(w - 2, 0); cr.line_to(w - 2, h); cr.stroke()
+            painter.drawLine(QPointF(w - 2, 0), QPointF(w - 2, h))
         if dir_name in ['top', 'random', 'rain']:
-            cr.move_to(0, 2); cr.line_to(w, 2); cr.stroke()
+            painter.drawLine(QPointF(0, 2), QPointF(w, 2))
         if dir_name in ['bottom', 'random']:
-            cr.move_to(0, h - 2); cr.line_to(w, h - 2); cr.stroke()
+            painter.drawLine(QPointF(0, h - 2), QPointF(w, h - 2))
 
-        cr.restore()
+        painter.restore()
 
-    def _draw_trajectory(self, cr: cairo.Context, w: int, h: int):
-        selected = self.get_selected_target()
+    def _draw_trajectory(self, painter: QtGui.QPainter, w: float, h: float):
+        selected = self.getSelectedTarget()
         if not selected:
             return
 
-        tx, ty = self._norm_to_px(selected.x, selected.y, w, h)
+        target_pos = self._norm_to_px(selected.x, selected.y, w, h)
+        tx, ty = target_pos.x(), target_pos.y()
         dir_name = self.active_spawn_direction.lower()
 
-        # Origin point based on spawn direction
         if dir_name == 'left':
-            ox, oy = 0, ty
+            ox, oy = 0.0, ty
         elif dir_name == 'right':
             ox, oy = w, ty
         elif dir_name in ['top', 'rain']:
-            ox, oy = tx, 0
+            ox, oy = tx, 0.0
         elif dir_name == 'bottom':
             ox, oy = tx, h
         else:
-            ox, oy = 0, ty
+            ox, oy = 0.0, ty
 
-        cr.save()
-        cr.set_source_rgba(0.96, 0.83, 0.18, 0.6)
-        cr.set_line_width(2.0)
-        cr.set_dash([6.0, 4.0])
+        painter.save()
+        traj_pen = QtGui.QPen(QtGui.QColor(246, 187, 66, 180), 2.0, Qt.PenStyle.DashLine)
+        traj_pen.setDashPattern([6, 4])
+        painter.setPen(traj_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
 
-        # Quadratic ballistic curve
+        path = QtGui.QPainterPath()
+        path.moveTo(ox, oy)
         cx = (ox + tx) * 0.5
-        cy = min(oy, ty) - 40
-        cr.move_to(ox, oy)
-        cr.curve_to(cx, cy, cx, ty, tx, ty)
-        cr.stroke()
+        cy = min(oy, ty) - 40.0
+        path.quadTo(cx, cy, tx, ty)
+        painter.drawPath(path)
 
-        # Arrowhead at target
-        cr.set_dash([])
-        cr.set_source_rgba(0.96, 0.83, 0.18, 0.8)
-        cr.arc(tx, ty, 5.0, 0, 2 * math.pi)
-        cr.fill()
-        cr.restore()
+        # Arrowhead / impact dot at target
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QtGui.QColor(246, 187, 66, 220))
+        painter.drawEllipse(QPointF(tx, ty), 5.0, 5.0)
+        painter.restore()
 
-    def _draw_target(self, cr: cairo.Context, tgt: Target, w: int, h: int, is_selected: bool):
-        cx, cy = self._norm_to_px(tgt.x, tgt.y, w, h)
+    def _draw_target(self, painter: QtGui.QPainter, tgt: Target, w: float, h: float, is_selected: bool):
+        center = self._norm_to_px(tgt.x, tgt.y, w, h)
+        cx, cy = center.x(), center.y()
         tw = tgt.width * w
         th = tgt.height * h
 
-        cr.save()
-        cr.translate(cx, cy)
-        cr.rotate(math.radians(tgt.rotation))
+        painter.save()
+        painter.translate(cx, cy)
+        painter.rotate(tgt.rotation)
 
-        # Target colors
         if is_selected:
-            fill_rgba = (0.21, 0.52, 0.89, 0.28)
-            stroke_rgba = (0.38, 0.63, 0.92, 0.95)
+            fill_color = QtGui.QColor(61, 174, 233, 65)     # Breeze highlight blue fill
+            stroke_color = QtGui.QColor(61, 174, 233, 240)  # Bright blue border
             stroke_width = 2.5
         else:
-            fill_rgba = (0.47, 0.49, 0.60, 0.15)
-            stroke_rgba = (0.58, 0.60, 0.70, 0.5)
+            fill_color = QtGui.QColor(127, 140, 141, 35)
+            stroke_color = QtGui.QColor(189, 195, 199, 120)
             stroke_width = 1.5
 
-        cr.set_source_rgba(*fill_rgba)
-        cr.set_line_width(stroke_width)
+        pen = QtGui.QPen(stroke_color, stroke_width)
+        painter.setPen(pen)
+        painter.setBrush(fill_color)
 
         if tgt.type == "box":
-            cr.rectangle(-tw * 0.5, -th * 0.5, tw, th)
-            cr.fill_preserve()
-            cr.set_source_rgba(*stroke_rgba)
-            cr.stroke()
+            painter.drawRect(QRectF(-tw * 0.5, -th * 0.5, tw, th))
 
         elif tgt.type == "circle":
             r = tgt.radius * min(w, h)
-            cr.arc(0, 0, r, 0, 2 * math.pi)
-            cr.fill_preserve()
-            cr.set_source_rgba(*stroke_rgba)
-            cr.stroke()
+            painter.drawEllipse(QPointF(0, 0), r, r)
 
         elif tgt.type == "capsule":
-            # VTuber Pill / Capsule (pill shape)
+            # VTuber Capsule / Pill shape
             r = min(tw, th) * 0.5
-            cr.new_sub_path()
+            path = QtGui.QPainterPath()
             if th >= tw:
                 # Vertical capsule
                 half_body_h = (th * 0.5) - r
-                cr.arc(0, -half_body_h, r, math.pi, 0)
-                cr.line_to(r, half_body_h)
-                cr.arc(0, half_body_h, r, 0, math.pi)
-                cr.line_to(-r, -half_body_h)
+                path.moveTo(-r, -half_body_h)
+                path.arcTo(QRectF(-r, -half_body_h - r, 2 * r, 2 * r), 180, -180)
+                path.lineTo(r, half_body_h)
+                path.arcTo(QRectF(-r, half_body_h - r, 2 * r, 2 * r), 0, -180)
+                path.closeSubpath()
             else:
                 # Horizontal capsule
                 half_body_w = (tw * 0.5) - r
-                cr.arc(half_body_w, 0, r, -math.pi / 2, math.pi / 2)
-                cr.line_to(-half_body_w, r)
-                cr.arc(-half_body_w, 0, r, math.pi / 2, 3 * math.pi / 2)
-                cr.line_to(half_body_w, -r)
-            cr.close_path()
-            cr.fill_preserve()
-            cr.set_source_rgba(*stroke_rgba)
-            cr.stroke()
+                path.moveTo(-half_body_w, -r)
+                path.lineTo(half_body_w, -r)
+                path.arcTo(QRectF(half_body_w - r, -r, 2 * r, 2 * r), 90, -180)
+                path.lineTo(-half_body_w, r)
+                path.arcTo(QRectF(-half_body_w - r, -r, 2 * r, 2 * r), 270, -180)
+                path.closeSubpath()
+            painter.drawPath(path)
 
         elif tgt.type == "polygon":
             points = tgt.points
             if len(points) >= 3:
-                cr.new_sub_path()
-                # Points are normalized relative to canvas, convert relative to target center
-                for i, pt in enumerate(points):
-                    px, py = self._norm_to_px(pt[0], pt[1], w, h)
-                    # Translate to center-relative
-                    lx, ly = px - cx, py - cy
-                    if i == 0:
-                        cr.move_to(lx, ly)
-                    else:
-                        cr.line_to(lx, ly)
-                cr.close_path()
-                cr.fill_preserve()
-                cr.set_source_rgba(*stroke_rgba)
-                cr.stroke()
+                poly = QtGui.QPolygonF()
+                for pt in points:
+                    px, py = pt[0] * w, pt[1] * h
+                    poly.append(QPointF(px - cx, py - cy))
+                painter.drawPolygon(poly)
 
         # Target Name Label
-        cr.set_source_rgba(1.0, 1.0, 1.0, 0.85 if is_selected else 0.5)
-        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-        cr.set_font_size(12.0)
-        extents = cr.text_extents(tgt.name)
-        cr.move_to(-extents.width * 0.5, extents.height * 0.5)
-        cr.show_text(tgt.name)
+        painter.setPen(QtGui.QColor(255, 255, 255, 220 if is_selected else 130))
+        font = painter.font()
+        font.setPixelSize(12)
+        font.setBold(True)
+        painter.setFont(font)
+        fm = QtGui.QFontMetrics(font)
+        text_w = fm.horizontalAdvance(tgt.name)
+        text_h = fm.height()
+        painter.drawText(int(-text_w * 0.5), int(text_h * 0.3), tgt.name)
 
         # Draw Interactive Handles if Selected
         if is_selected:
-            self._draw_handles(cr, tgt, tw, th, w, h)
+            self._draw_handles(painter, tgt, tw, th, w, h)
 
-        cr.restore()
+        painter.restore()
 
-    def _draw_handles(self, cr: cairo.Context, tgt: Target, tw: float, th: float, w: int, h: int):
-        handle_color = (0.21, 0.82, 0.48, 1.0)
-        handle_radius = 5.5
+    def _draw_handles(self, painter: QtGui.QPainter, tgt: Target, tw: float, th: float, w: float, h: float):
+        handle_color = QtGui.QColor(39, 174, 96)   # Positive green handle
+        handle_pen = QtGui.QPen(QtGui.QColor(255, 255, 255, 230), 1.5)
 
-        # 1. Center Handle (Drag to move)
-        cr.set_source_rgba(*handle_color)
-        cr.arc(0, 0, 4.0, 0, 2 * math.pi)
-        cr.fill()
+        # 1. Center Handle (Move)
+        painter.setPen(handle_pen)
+        painter.setBrush(handle_color)
+        painter.drawEllipse(QPointF(0, 0), 4.5, 4.5)
 
-        # 2. Resize Corner Handle (Bottom-Right)
+        # 2. Resize Handle (Bottom-Right / Radius)
+        painter.setBrush(QtGui.QColor(61, 174, 233))
         if tgt.type in ["box", "capsule"]:
-            cr.arc(tw * 0.5, th * 0.5, handle_radius, 0, 2 * math.pi)
-            cr.fill_preserve()
-            cr.set_source_rgba(1.0, 1.0, 1.0, 0.9)
-            cr.set_line_width(1.5)
-            cr.stroke()
-
+            painter.drawEllipse(QPointF(tw * 0.5, th * 0.5), 5.5, 5.5)
         elif tgt.type == "circle":
             r = tgt.radius * min(w, h)
-            cr.arc(r, 0, handle_radius, 0, 2 * math.pi)
-            cr.fill_preserve()
-            cr.set_source_rgba(1.0, 1.0, 1.0, 0.9)
-            cr.set_line_width(1.5)
-            cr.stroke()
-
+            painter.drawEllipse(QPointF(r, 0), 5.5, 5.5)
         elif tgt.type == "polygon":
-            cx, cy = self._norm_to_px(tgt.x, tgt.y, w, h)
-            for i, pt in enumerate(tgt.points):
-                px, py = self._norm_to_px(pt[0], pt[1], w, h)
-                lx, ly = px - cx, py - cy
-                cr.arc(lx, ly, handle_radius, 0, 2 * math.pi)
-                cr.fill_preserve()
-                cr.set_source_rgba(1.0, 1.0, 1.0, 0.9)
-                cr.set_line_width(1.5)
-                cr.stroke()
+            center = self._norm_to_px(tgt.x, tgt.y, w, h)
+            for pt in tgt.points:
+                px, py = pt[0] * w, pt[1] * h
+                painter.drawEllipse(QPointF(px - center.x(), py - center.y()), 5.5, 5.5)
 
         # 3. Rotation Handle (Top arm)
-        cr.set_source_rgba(0.38, 0.63, 0.92, 0.8)
-        cr.set_line_width(1.5)
-        handle_y = -th * 0.5 - 20 if tgt.type != "circle" else -tgt.radius * min(w, h) - 20
-        cr.move_to(0, -th * 0.5 if tgt.type != "circle" else -tgt.radius * min(w, h))
-        cr.line_to(0, handle_y)
-        cr.stroke()
+        rot_arm_y = -th * 0.5 - 22.0 if tgt.type != "circle" else -tgt.radius * min(w, h) - 22.0
+        start_y = -th * 0.5 if tgt.type != "circle" else -tgt.radius * min(w, h)
 
-        cr.set_source_rgba(0.38, 0.63, 0.92, 1.0)
-        cr.arc(0, handle_y, handle_radius, 0, 2 * math.pi)
-        cr.fill_preserve()
-        cr.set_source_rgba(1.0, 1.0, 1.0, 0.9)
-        cr.stroke()
+        arm_pen = QtGui.QPen(QtGui.QColor(61, 174, 233, 190), 1.5)
+        painter.setPen(arm_pen)
+        painter.drawLine(QPointF(0, start_y), QPointF(0, rot_arm_y))
 
-    # --- Mouse Interaction Handling ---
-    def _hit_test(self, px: float, py: float, w: int, h: int) -> Tuple[Optional[Target], Optional[str]]:
-        # Test selected target handles first
-        selected = self.get_selected_target()
+        painter.setPen(handle_pen)
+        painter.setBrush(QtGui.QColor(61, 174, 233))
+        painter.drawEllipse(QPointF(0, rot_arm_y), 5.5, 5.5)
+
+    # --- Mouse Interaction & Hit Testing ---
+    def _hit_test(self, pos: QPointF, w: float, h: float) -> Tuple[Optional[Target], Optional[str]]:
+        selected = self.getSelectedTarget()
         if selected:
-            cx, cy = self._norm_to_px(selected.x, selected.y, w, h)
+            center = self._norm_to_px(selected.x, selected.y, w, h)
+            cx, cy = center.x(), center.y()
             tw = selected.width * w
             th = selected.height * h
 
-            # Rotate coordinates back for handle testing
+            # Rotate click position relative to target center
             rad = -math.radians(selected.rotation)
-            dx = px - cx
-            dy = py - cy
+            dx = pos.x() - cx
+            dy = pos.y() - cy
             rx = dx * math.cos(rad) - dy * math.sin(rad)
             ry = dx * math.sin(rad) + dy * math.cos(rad)
 
             # Check Rotation Handle
-            rot_y = -th * 0.5 - 20 if selected.type != "circle" else -selected.radius * min(w, h) - 20
-            if math.hypot(rx, ry - rot_y) <= 12:
+            rot_y = -th * 0.5 - 22.0 if selected.type != "circle" else -selected.radius * min(w, h) - 22.0
+            if math.hypot(rx, ry - rot_y) <= 13:
                 return selected, "rotate"
 
             # Check Resize Handle
             if selected.type in ["box", "capsule"]:
-                if math.hypot(rx - tw * 0.5, ry - th * 0.5) <= 12:
+                if math.hypot(rx - tw * 0.5, ry - th * 0.5) <= 13:
                     return selected, "resize_se"
             elif selected.type == "circle":
                 r = selected.radius * min(w, h)
-                if math.hypot(rx - r, ry) <= 12:
+                if math.hypot(rx - r, ry) <= 13:
                     return selected, "resize_se"
             elif selected.type == "polygon":
                 for i, pt in enumerate(selected.points):
-                    vx, vy = self._norm_to_px(pt[0], pt[1], w, h)
-                    if math.hypot(px - vx, py - vy) <= 12:
+                    vx, vy = pt[0] * w, pt[1] * h
+                    if math.hypot(pos.x() - vx, pos.y() - vy) <= 13:
                         return selected, f"poly_vertex_{i}"
 
-            # Check Center Handle / Target Area
+            # Check Center Handle
             if math.hypot(rx, ry) <= 12:
                 return selected, "center"
 
         # Check all targets for body click
         for tgt in reversed(self.targets):
-            cx, cy = self._norm_to_px(tgt.x, tgt.y, w, h)
+            center = self._norm_to_px(tgt.x, tgt.y, w, h)
+            cx, cy = center.x(), center.y()
             tw = tgt.width * w
             th = tgt.height * h
             rad = -math.radians(tgt.rotation)
-            dx = px - cx
-            dy = py - cy
+            dx = pos.x() - cx
+            dy = pos.y() - cy
             rx = dx * math.cos(rad) - dy * math.sin(rad)
             ry = dx * math.sin(rad) + dy * math.cos(rad)
 
@@ -407,110 +388,114 @@ class MapperCanvas(Gtk.DrawingArea):
 
         return None, None
 
-    def _on_pressed(self, gesture, n_press, x, y):
-        w = self.get_width()
-        h = self.get_height()
-        target, handle = self._hit_test(x, y, w, h)
+    def mousePressEvent(self, event: QtGui.QMouseEvent):
+        pos = event.position()
+        w = float(self.width())
+        h = float(self.height())
+        target, handle = self._hit_test(pos, w, h)
 
-        if target:
-            self.select_target(target.id)
-            if n_press == 2 and target.type == "polygon":
-                # Double click adds a new vertex to polygon
-                nx, ny = self._px_to_norm(x, y, w, h)
-                target.points.append([round(nx, 3), round(ny, 3)])
-                self.queue_draw()
-                if self.on_target_changed:
-                    self.on_target_changed(target)
-
-    def _on_drag_begin(self, gesture, start_x, start_y):
-        w = self.get_width()
-        h = self.get_height()
-        target, handle = self._hit_test(start_x, start_y, w, h)
-
-        if target:
-            self.select_target(target.id)
-            self.active_drag_handle = handle or "body"
-            self.drag_start_x = start_x
-            self.drag_start_y = start_y
-            self.initial_target_state = {
-                "x": target.x,
-                "y": target.y,
-                "width": target.width,
-                "height": target.height,
-                "radius": target.radius,
-                "rotation": target.rotation,
-                "points": [list(p) for p in target.points],
-            }
-        else:
-            self.active_drag_handle = None
-
-    def _on_drag_update(self, gesture, offset_x, offset_y):
-        if not self.active_drag_handle:
-            return
-
-        target = self.get_selected_target()
-        if not target:
-            return
-
-        w = self.get_width()
-        h = self.get_height()
-        st = self.initial_target_state
-
-        if self.active_drag_handle in ["center", "body"]:
-            # Move entire target
-            dnx = offset_x / w
-            dny = offset_y / h
-            target.x = max(0.05, min(0.95, round(st["x"] + dnx, 3)))
-            target.y = max(0.05, min(0.95, round(st["y"] + dny, 3)))
-
-        elif self.active_drag_handle == "resize_se":
-            if target.type == "circle":
-                dr = (offset_x + offset_y) / (2 * min(w, h))
-                target.radius = max(0.02, min(0.45, round(st["radius"] + dr, 3)))
+        if event.button() == Qt.MouseButton.LeftButton:
+            if target:
+                self.selectTarget(target.id)
+                self.active_drag_handle = handle or "body"
+                self.drag_start_pos = pos
+                self.initial_target_state = {
+                    "x": target.x,
+                    "y": target.y,
+                    "width": target.width,
+                    "height": target.height,
+                    "radius": target.radius,
+                    "rotation": target.rotation,
+                    "points": [list(p) for p in target.points],
+                }
             else:
-                dw = (offset_x * 2) / w
-                dh = (offset_y * 2) / h
-                target.width = max(0.05, min(0.8, round(st["width"] + dw, 3)))
-                target.height = max(0.05, min(0.8, round(st["height"] + dh, 3)))
+                self.active_drag_handle = None
 
-        elif self.active_drag_handle == "rotate":
-            cx, cy = self._norm_to_px(target.x, target.y, w, h)
-            curr_x = self.drag_start_x + offset_x
-            curr_y = self.drag_start_y + offset_y
-            angle = math.degrees(math.atan2(curr_y - cy, curr_x - cx)) + 90
-            target.rotation = round((angle + 180) % 360 - 180, 1)
+        elif event.button() == Qt.MouseButton.RightButton:
+            # Context menu or remove vertex if right clicked on polygon vertex
+            if target and handle and handle.startswith("poly_vertex_") and target.type == "polygon":
+                idx = int(handle.split("_")[-1])
+                if len(target.points) > 3:
+                    target.points.pop(idx)
+                    self.update()
+                    self.targetChanged.emit(target)
 
-        elif self.active_drag_handle.startswith("poly_vertex_"):
-            idx = int(self.active_drag_handle.split("_")[-1])
-            if idx < len(target.points):
+    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position()
+            w = float(self.width())
+            h = float(self.height())
+            target, handle = self._hit_test(pos, w, h)
+
+            if target and target.type == "polygon":
+                # Double click inserts a new vertex to polygon
+                nx, ny = self._px_to_norm(pos.x(), pos.y(), w, h)
+                target.points.append([round(nx, 3), round(ny, 3)])
+                self.update()
+                self.targetChanged.emit(target)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent):
+        pos = event.position()
+        w = float(self.width())
+        h = float(self.height())
+
+        if self.active_drag_handle and event.buttons() & Qt.MouseButton.LeftButton:
+            target = self.getSelectedTarget()
+            if not target:
+                return
+
+            offset_x = pos.x() - self.drag_start_pos.x()
+            offset_y = pos.y() - self.drag_start_pos.y()
+            st = self.initial_target_state
+
+            if self.active_drag_handle in ["center", "body"]:
                 dnx = offset_x / w
                 dny = offset_y / h
-                init_pt = st["points"][idx]
-                target.points[idx] = [
-                    max(0.0, min(1.0, round(init_pt[0] + dnx, 3))),
-                    max(0.0, min(1.0, round(init_pt[1] + dny, 3))),
-                ]
+                target.x = max(0.05, min(0.95, round(st["x"] + dnx, 3)))
+                target.y = max(0.05, min(0.95, round(st["y"] + dny, 3)))
 
-        self.queue_draw()
-        if self.on_target_changed:
-            self.on_target_changed(target)
+            elif self.active_drag_handle == "resize_se":
+                if target.type == "circle":
+                    dr = (offset_x + offset_y) / (2 * min(w, h))
+                    target.radius = max(0.02, min(0.45, round(st["radius"] + dr, 3)))
+                else:
+                    dw = (offset_x * 2) / w
+                    dh = (offset_y * 2) / h
+                    target.width = max(0.05, min(0.8, round(st["width"] + dw, 3)))
+                    target.height = max(0.05, min(0.8, round(st["height"] + dh, 3)))
 
-    def _on_drag_end(self, gesture, offset_x, offset_y):
-        self.active_drag_handle = None
+            elif self.active_drag_handle == "rotate":
+                center = self._norm_to_px(target.x, target.y, w, h)
+                angle = math.degrees(math.atan2(pos.y() - center.y(), pos.x() - center.x())) + 90
+                target.rotation = round((angle + 180) % 360 - 180, 1)
 
-    def _on_motion(self, controller, x, y):
-        # Update cursor on handle hover
-        w = self.get_width()
-        h = self.get_height()
-        target, handle = self._hit_test(x, y, w, h)
+            elif self.active_drag_handle.startswith("poly_vertex_"):
+                idx = int(self.active_drag_handle.split("_")[-1])
+                if idx < len(target.points):
+                    dnx = offset_x / w
+                    dny = offset_y / h
+                    init_pt = st["points"][idx]
+                    target.points[idx] = [
+                        max(0.0, min(1.0, round(init_pt[0] + dnx, 3))),
+                        max(0.0, min(1.0, round(init_pt[1] + dny, 3))),
+                    ]
 
+            self.update()
+            self.targetChanged.emit(target)
+            return
+
+        # Update hover cursor
+        target, handle = self._hit_test(pos, w, h)
         if handle == "rotate":
-            self.set_cursor(Gdk.Cursor.new_from_name("crosshair", None))
+            self.setCursor(Qt.CursorShape.CrossCursor)
         elif handle == "resize_se":
-            self.set_cursor(Gdk.Cursor.new_from_name("nwse-resize", None))
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
         elif handle in ["center", "body"]:
-            self.set_cursor(Gdk.Cursor.new_from_name("grab", None))
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
         elif handle and handle.startswith("poly_vertex_"):
-            self.set_cursor(Gdk.Cursor.new_from_name("move", None))
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
         else:
-            self.set_cursor(None)
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
+        self.active_drag_handle = None

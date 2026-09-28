@@ -12,8 +12,9 @@ def main():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
     from .app import YeetApplication
-    app = YeetApplication()
-    return app.run(sys.argv)
+    app = YeetApplication(sys.argv)
+    app.start()
+    return app.exec()
 
 if __name__ == "__main__":
     sys.exit(main())

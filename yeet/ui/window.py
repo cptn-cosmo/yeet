@@ -1,166 +1,268 @@
 """
-Yeet - Main Application Window (Libadwaita)
+Yeet - Main Application Window (Qt6 / KDE 6 Native)
 App ID: gay.geeks.Yeet
 """
 
-import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, GLib, Gdk, Gio, GObject
-
+import os
+from typing import Optional
+from ..qt_compat import QtCore, QtGui, QtWidgets, Qt, Signal, Slot, QTimer
 from ..config import ConfigManager
 from ..server import ServerDaemon
 from .target_view import TargetView
 from .items_view import ItemsView
 from .physics_view import PhysicsView
 from .server_view import ServerView
+from .widgets import KdeToast, StatusBadge
+from .about_dialog import AboutDialog
 
-class YeetWindow(Adw.ApplicationWindow):
-    def __init__(self, app, config_manager: ConfigManager, server_daemon: ServerDaemon):
-        super().__init__(application=app, title="Yeet")
+class NavListWidget(QtWidgets.QListWidget):
+    """Modern KDE 6 styled navigation sidebar list."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(190)
+        self.setIconSize(QtCore.QSize(22, 22))
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setStyleSheet("""
+            QListWidget {
+                background-color: palette(window);
+                border: none;
+                border-right: 1px solid palette(midlight);
+                padding: 10px 8px;
+                outline: none;
+            }
+            QListWidget::item {
+                height: 40px;
+                padding-left: 10px;
+                padding-right: 10px;
+                margin-bottom: 4px;
+                border-radius: 6px;
+                font-weight: 500;
+                font-size: 10pt;
+                color: palette(text);
+            }
+            QListWidget::item:hover {
+                background-color: palette(midlight);
+            }
+            QListWidget::item:selected {
+                background-color: #3daee9;
+                color: #ffffff;
+                font-weight: bold;
+            }
+        """)
+
+class YeetWindow(QtWidgets.QMainWindow):
+    def __init__(self, config_manager: ConfigManager, server_daemon: ServerDaemon, parent=None):
+        super().__init__(parent)
         self.config_manager = config_manager
         self.server_daemon = server_daemon
 
-        self.set_default_size(960, 720)
-        self.set_size_request(600, 500)
+        self.setWindowTitle("Yeet — Stream Throwing System")
+        self.resize(1000, 740)
+        self.setMinimumSize(680, 520)
 
-        # Main Toast Overlay
-        self.toast_overlay = Adw.ToastOverlay()
-        self.set_content(self.toast_overlay)
+        # Set Window Icon
+        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "icons", "gay.geeks.Yeet.svg"))
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QtGui.QIcon(icon_path))
+        else:
+            self.setWindowIcon(QtGui.QIcon.fromTheme("gay.geeks.Yeet", QtGui.QIcon.fromTheme("applications-games")))
 
-        # Outer Box
-        outer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.toast_overlay.set_child(outer_box)
+        # Central Widget & Layout
+        central = QtWidgets.QWidget()
+        self.setCentralWidget(central)
+        central_layout = QtWidgets.QHBoxLayout(central)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
 
-        # Header Bar
-        header_bar = Adw.HeaderBar()
-        outer_box.append(header_bar)
+        # Sidebar Navigation
+        self.nav_list = NavListWidget()
+        self._setup_nav_items()
+        central_layout.addWidget(self.nav_list)
 
-        # Header Title with View Switcher
-        self.view_stack = Adw.ViewStack()
-        view_switcher_title = Adw.ViewSwitcherTitle()
-        view_switcher_title.set_stack(self.view_stack)
-        view_switcher_title.set_title("Yeet")
-        view_switcher_title.set_subtitle("Stream Throwing System")
-        header_bar.set_title_widget(view_switcher_title)
+        # Stacked Views
+        self.view_stack = QtWidgets.QStackedWidget()
+        central_layout.addWidget(self.view_stack, stretch=1)
 
-        # One-Click Copy OBS URL Button
-        copy_url_btn = Gtk.Button()
-        copy_url_btn.set_icon_name("edit-copy-symbolic")
-        copy_url_btn.set_tooltip_text("Copy OBS Browser Source URL to Clipboard")
-        copy_url_btn.connect("clicked", self._on_copy_obs_url)
-        header_bar.pack_start(copy_url_btn)
+        self._setup_views()
 
-        # Quick Test Throw Action Button
-        test_throw_btn = Gtk.Button()
-        test_throw_btn.set_icon_name("media-playback-start-symbolic")
-        test_throw_btn.set_tooltip_text("Launch Quick Test Throw")
-        test_throw_btn.add_css_class("suggested-action")
-        test_throw_btn.connect("clicked", self._on_quick_test_throw)
-        header_bar.pack_start(test_throw_btn)
+        # Connect navigation
+        self.nav_list.currentRowChanged.connect(self.view_stack.setCurrentIndex)
+        self.nav_list.setCurrentRow(0)
+
+        # Build KDE 6 Toolbar
+        self._setup_toolbar()
+
+        # Build Keyboard Shortcuts
+        self._setup_shortcuts()
+
+        # In-App Floating Toast
+        self.toast = KdeToast(self)
+
+        # Periodic status refresh timer (every 2 seconds)
+        self.status_timer = QTimer(self)
+        self.status_timer.timeout.connect(self._on_periodic_status_update)
+        self.status_timer.start(2000)
+
+        # Initial badge update
+        self._update_server_badge()
+
+    def _setup_nav_items(self):
+        items = [
+            ("Targets", "mark-location", "Collision boundaries & coordinate mapper"),
+            ("Items", "package-x-generic", "Throwable inventory & sounds"),
+            ("Physics", "applications-games", "Spawns, ballistic aim & gravity"),
+            ("OBS & Server", "network-server", "OBS browser source & REST API"),
+        ]
+        for title, icon_name, tooltip in items:
+            item = QtWidgets.QListWidgetItem(QtGui.QIcon.fromTheme(icon_name), title)
+            item.setToolTip(tooltip)
+            self.nav_list.addItem(item)
+
+    def _setup_views(self):
+        # 1. Targets View
+        self.target_view = TargetView(self.config_manager)
+        self.target_view.targetsUpdated.connect(self._on_targets_updated)
+        self.view_stack.addWidget(self.target_view)
+
+        # 2. Items View
+        self.items_view = ItemsView(self.config_manager)
+        self.items_view.itemsUpdated.connect(self._on_items_updated)
+        self.items_view.testThrowRequested.connect(self.trigger_throw)
+        self.view_stack.addWidget(self.items_view)
+
+        # 3. Physics View
+        self.physics_view = PhysicsView(self.config_manager)
+        self.physics_view.physicsUpdated.connect(self._on_physics_updated)
+        self.physics_view.testThrowRequested.connect(self.trigger_throw)
+        self.physics_view.clearCanvasRequested.connect(self.trigger_clear)
+        self.view_stack.addWidget(self.physics_view)
+
+        # 4. Server View
+        self.server_view = ServerView(self.config_manager)
+        self.server_view.copyUrlRequested.connect(self._on_url_copied)
+        self.server_view.clearCanvasRequested.connect(self.trigger_clear)
+        self.server_view.messageNotice.connect(self.show_toast)
+        self.view_stack.addWidget(self.server_view)
+
+    def _setup_toolbar(self):
+        toolbar = QtWidgets.QToolBar("Main Toolbar")
+        toolbar.setMovable(False)
+        toolbar.setFloatable(False)
+        toolbar.setIconSize(QtCore.QSize(20, 20))
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        toolbar.setStyleSheet("""
+            QToolBar {
+                background-color: palette(window);
+                border: none;
+                border-bottom: 1px solid palette(midlight);
+                padding: 4px 8px;
+                spacing: 8px;
+            }
+            QToolButton {
+                padding: 5px 10px;
+                border-radius: 6px;
+                font-weight: 500;
+            }
+            QToolButton:hover {
+                background-color: palette(midlight);
+            }
+        """)
+
+        # Quick Test Throw Action
+        self.test_throw_action = QtGui.QAction(QtGui.QIcon.fromTheme("media-playback-start"), "Test Throw", self)
+        self.test_throw_action.setToolTip("Launch quick test barrage into OBS")
+        self.test_throw_action.triggered.connect(self._on_quick_test_throw)
+        toolbar.addAction(self.test_throw_action)
+
+        # Copy OBS URL Action
+        self.copy_url_action = QtGui.QAction(QtGui.QIcon.fromTheme("edit-copy"), "Copy OBS URL", self)
+        self.copy_url_action.setToolTip("Copy OBS Browser Source URL to clipboard")
+        self.copy_url_action.triggered.connect(self._on_copy_obs_url)
+        toolbar.addAction(self.copy_url_action)
+
+        toolbar.addSeparator()
+
+        # Clear Canvas Action
+        self.clear_action = QtGui.QAction(QtGui.QIcon.fromTheme("edit-clear"), "Clear Canvas", self)
+        self.clear_action.setToolTip("Despawn all active items from OBS overlay (Ctrl+K)")
+        self.clear_action.setShortcut(QtGui.QKeySequence("Ctrl+K"))
+        self.clear_action.triggered.connect(self.trigger_clear)
+        toolbar.addAction(self.clear_action)
+
+        # Spacer to push right-hand widgets
+        spacer = QtWidgets.QWidget()
+        spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
 
         # Server Status Pill Badge
-        self.server_badge = Gtk.Label()
-        self.server_badge.add_css_class("success")
-        self.server_badge.add_css_class("caption")
-        self._update_server_badge()
-        header_bar.pack_end(self.server_badge)
+        self.server_badge = StatusBadge()
+        toolbar.addWidget(self.server_badge)
 
-        # Primary App Menu
-        menu = Gio.Menu()
-        menu.append("Clear Canvas", "app.clear_canvas")
-        menu.append("Documentation", "app.documentation")
-        menu.append("About Yeet", "app.about")
-        menu_btn = Gtk.MenuButton()
-        menu_btn.set_icon_name("open-menu-symbolic")
-        menu_btn.set_menu_model(menu)
-        header_bar.pack_end(menu_btn)
+        # Menu Button (Hamburger)
+        menu_btn = QtWidgets.QToolButton()
+        menu_btn.setIcon(QtGui.QIcon.fromTheme("application-menu", QtGui.QIcon.fromTheme("open-menu-symbolic")))
+        menu_btn.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
 
-        # Setup Views
-        self.target_view = TargetView(
-            config_manager=self.config_manager,
-            on_targets_updated=self._on_targets_updated
-        )
-        self.items_view = ItemsView(
-            config_manager=self.config_manager,
-            on_items_updated=self._on_items_updated,
-            on_test_throw=self.trigger_throw
-        )
-        self.physics_view = PhysicsView(
-            config_manager=self.config_manager,
-            on_physics_updated=self._on_physics_updated,
-            on_test_throw=self.trigger_throw,
-            on_clear_canvas=self.trigger_clear
-        )
-        self.server_view = ServerView(
-            config_manager=self.config_manager,
-            on_copy_url=self._on_url_copied,
-            on_clear_canvas=self.trigger_clear
-        )
+        app_menu = QtWidgets.QMenu(menu_btn)
 
-        # Add pages to ViewStack
-        page1 = self.view_stack.add_titled(self.target_view, "targets", "Targets")
-        page1.set_icon_name("mark-location-symbolic")
+        clear_menu_act = app_menu.addAction(QtGui.QIcon.fromTheme("edit-clear"), "Clear Overlay (Ctrl+K)", self.trigger_clear)
+        open_browser_act = app_menu.addAction(QtGui.QIcon.fromTheme("web-browser"), "Open Overlay in Browser", self._on_docs_action)
+        app_menu.addSeparator()
+        docs_act = app_menu.addAction(QtGui.QIcon.fromTheme("help-contents"), "Documentation (F1)", self._on_docs_action)
+        about_act = app_menu.addAction(QtGui.QIcon.fromTheme("help-about"), "About Yeet", self._on_about_action)
+        app_menu.addSeparator()
+        quit_act = app_menu.addAction(QtGui.QIcon.fromTheme("application-exit"), "Quit Yeet (Ctrl+Q)", self.close)
 
-        page2 = self.view_stack.add_titled(self.items_view, "items", "Items")
-        page2.set_icon_name("package-x-generic-symbolic")
+        menu_btn.setMenu(app_menu)
+        toolbar.addWidget(menu_btn)
 
-        page3 = self.view_stack.add_titled(self.physics_view, "physics", "Physics and Spawns")
-        page3.set_icon_name("applications-games-symbolic")
+        self.addToolBar(toolbar)
 
-        page4 = self.view_stack.add_titled(self.server_view, "server", "OBS and Server")
-        page4.set_icon_name("network-server-symbolic")
+    def _setup_shortcuts(self):
+        quit_shortcut = QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Q"), self)
+        quit_shortcut.activated.connect(self.close)
 
-        outer_box.append(self.view_stack)
+        clear_shortcut = QtGui.QShortcut(QtGui.QKeySequence("Ctrl+K"), self)
+        clear_shortcut.activated.connect(self.trigger_clear)
 
-        # Bottom View Switcher Bar for compact/mobile viewports
-        switcher_bar = Adw.ViewSwitcherBar()
-        switcher_bar.set_stack(self.view_stack)
-        view_switcher_title.bind_property(
-            "title-visible",
-            switcher_bar,
-            "reveal",
-            GObject.BindingFlags.SYNC_CREATE
-        )
-        outer_box.append(switcher_bar)
+        docs_shortcut = QtGui.QShortcut(QtGui.QKeySequence("F1"), self)
+        docs_shortcut.activated.connect(self._on_docs_action)
 
-        # Periodic timer for status & connected client counts
-        GLib.timeout_add_seconds(2, self._on_periodic_status_update)
+    def resizeEvent(self, event: QtGui.QResizeEvent):
+        super().resizeEvent(event)
+        # Re-center toast if visible
+        if hasattr(self, "toast") and self.toast.isVisible():
+            pw = self.width()
+            w = self.toast.sizeHint().width()
+            self.toast.move(int((pw - w) / 2), 65)
 
-    def show_toast(self, text: str):
-        toast = Adw.Toast.new(text)
-        toast.set_timeout(3)
-        self.toast_overlay.add_toast(toast)
+    def show_toast(self, text: str, icon_name: str = "dialog-information"):
+        self.toast.showMessage(text, icon_name=icon_name)
 
     def _update_server_badge(self):
         port = self.config_manager.server.port
         count = self.server_daemon.get_connected_count()
         if count > 0:
-            self.server_badge.set_text(f"● OBS Connected ({count})")
-            self.server_badge.remove_css_class("dim-label")
-            self.server_badge.add_css_class("success")
+            self.server_badge.setStatus("connected", f"OBS Connected ({count})")
         else:
-            self.server_badge.set_text(f"● Ready :{port}")
-            self.server_badge.remove_css_class("dim-label")
-            self.server_badge.add_css_class("accent")
+            self.server_badge.setStatus("ready", f"Ready :{port}")
 
-    def _on_periodic_status_update(self) -> bool:
+    def _on_periodic_status_update(self):
         self._update_server_badge()
         count = self.server_daemon.get_connected_count()
         self.server_view.update_connected_clients(count)
         self.server_view.update_collision_count(self.server_daemon.total_collisions)
-        return True
 
-    def _on_copy_obs_url(self, btn):
+    def _on_copy_obs_url(self):
         url = self.server_view.get_overlay_url()
-        clipboard = Gdk.Display.get_default().get_clipboard()
-        clipboard.set(url)
-        self.show_toast("OBS Browser Source URL copied to clipboard!")
+        clipboard = QtWidgets.QApplication.clipboard()
+        clipboard.setText(url)
+        self.show_toast("OBS Browser Source URL copied to clipboard!", "edit-copy")
 
     def _on_url_copied(self, url: str):
-        self.show_toast("Copied to clipboard!")
+        self.show_toast("Copied to clipboard!", "edit-copy")
 
-    def _on_quick_test_throw(self, btn):
+    def _on_quick_test_throw(self):
         items = list(self.config_manager.items.keys())
         item_id = items[0] if items else "tomato"
         self.trigger_throw(item_id, 3)
@@ -174,11 +276,11 @@ class YeetWindow(Adw.ApplicationWindow):
             spread = self.config_manager.physics.default_spread
 
         self.server_daemon.threadsafe_throw(item_id, amount, spawn_direction, force, spread)
-        self.show_toast(f"Thrown {amount} × {item_id}!")
+        self.show_toast(f"Thrown {amount} × {item_id}!", "media-playback-start")
 
     def trigger_clear(self):
         self.server_daemon.threadsafe_clear()
-        self.show_toast("OBS Overlay cleared!")
+        self.show_toast("OBS Overlay cleared!", "edit-clear")
 
     def _on_targets_updated(self):
         self.server_daemon.threadsafe_broadcast({
@@ -192,4 +294,12 @@ class YeetWindow(Adw.ApplicationWindow):
 
     def _on_physics_updated(self):
         self.server_daemon.threadsafe_update_config()
-        self.target_view.canvas.set_spawn_direction(self.config_manager.physics.default_spawn_direction)
+        self.target_view.canvas.setSpawnDirection(self.config_manager.physics.default_spawn_direction)
+
+    def _on_docs_action(self):
+        url = f"http://{self.config_manager.server.host}:{self.config_manager.server.port}/overlay"
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+
+    def _on_about_action(self):
+        dialog = AboutDialog(self)
+        dialog.exec()
