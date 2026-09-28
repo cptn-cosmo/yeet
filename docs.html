@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yeet — Documentation & API Reference</title>
+  <style>
+    :root {
+      --bg-base: #1b1e20;
+      --bg-surface: #232629;
+      --bg-surface-elevated: #2a2e32;
+      --bg-card: #2d3136;
+      --border-color: #31363b;
+      --border-subtle: #3a3f44;
+      --accent: #3daee9;
+      --accent-hover: #2980b9;
+      --accent-light: #55c1ff;
+      --success: #27ae60;
+      --warning: #f39c12;
+      --danger: #da4453;
+      --text-main: #fcfcfc;
+      --text-muted: #bdc3c7;
+      --text-dim: #7f8c8d;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, sans-serif;
+      --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    aside.sidebar {
+      width: 280px;
+      background-color: var(--bg-surface);
+      border-right: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #3daee9, #1abc9c);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 20px;
+      color: #fff;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-version {
+      font-size: 0.75rem;
+      color: var(--accent);
+      background: rgba(61, 174, 233, 0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .nav-group-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin: 16px 0 8px 8px;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 7px 12px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      display: block;
+    }
+
+    .nav-links a:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+      padding-left: 16px;
+    }
+
+    /* Main Content Area */
+    main.content {
+      flex: 1;
+      max-width: 1040px;
+      padding: 40px 48px 80px 48px;
+      overflow-x: hidden;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4 {
+      color: var(--text-main);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    h2 {
+      font-size: 1.6rem;
+      margin: 48px 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h3 {
+      font-size: 1.2rem;
+      margin: 28px 0 14px 0;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: var(--text-muted);
+    }
+
+    strong {
+      color: var(--text-main);
+    }
+
+    /* Cards & Containers */
+    .card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .card-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 18px;
+    }
+
+    /* Item Grid & Catalog Cards */
+    .item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .item-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .item-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+
+    .item-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .item-icon-box {
+      width: 52px;
+      height: 52px;
+      background: var(--bg-surface-elevated);
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      flex-shrink: 0;
+    }
+
+    .item-icon-box img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .item-info {
+      flex: 1;
+    }
+
+    .item-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .item-id-badge {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent-light);
+      background: rgba(61, 174, 233, 0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-top: 2px;
+    }
+
+    .item-props {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+      font-size: 0.85rem;
+      background: var(--bg-surface-elevated);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .prop-label {
+      color: var(--text-dim);
+    }
+
+    .prop-val {
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    /* Badges */
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge-food { background: rgba(230, 126, 34, 0.2); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.4); }
+    .badge-construction { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.4); }
+    .badge-toys { background: rgba(241, 196, 15, 0.2); color: #f1c40f; border: 1px solid rgba(241, 196, 15, 0.4); }
+    .badge-summer { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.4); }
+    .badge-cute { background: rgba(233, 30, 99, 0.2); color: #e91e63; border: 1px solid rgba(233, 30, 99, 0.4); }
+    .badge-default { background: rgba(149, 165, 166, 0.2); color: #bdc3c7; border: 1px solid rgba(149, 165, 166, 0.4); }
+
+    .badge-method {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .badge-post { background: #27ae60; color: #fff; }
+    .badge-get { background: #3daee9; color: #fff; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    tr:hover td {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Code Blocks */
+    pre {
+      background-color: #141618;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin-bottom: 18px;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: #e0e0e0;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      background-color: var(--bg-surface-elevated);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      color: var(--accent-light);
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    /* Alerts */
+    .alert {
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 0.92rem;
+      border-left: 4px solid;
+    }
+
+    .alert-info {
+      background: rgba(61, 174, 233, 0.1);
+      border-color: var(--accent);
+      color: #bfe5fa;
+    }
+
+    .alert-tip {
+      background: rgba(39, 174, 96, 0.1);
+      border-color: var(--success);
+      color: #c7f3d6;
+    }
+
+    .alert-warning {
+      background: rgba(243, 156, 18, 0.1);
+      border-color: var(--warning);
+      color: #fde5be;
+    }
+
+    /* Endpoint Box */
+    .endpoint {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .endpoint-header {
+      padding: 12px 18px;
+      background: var(--bg-surface-elevated);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .endpoint-path {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    .endpoint-body {
+      padding: 18px;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      body {
+        flex-direction: column;
+      }
+      aside.sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+      main.content {
+        padding: 24px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">Y</div>
+      <div>
+        <div class="brand-title">Yeet</div>
+        <div class="brand-version">v1.0.0 KDE 6</div>
+      </div>
+    </div>
+
+    <div class="nav-group-title">Getting Started</div>
+    <ul class="nav-links">
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#obs-integration">OBS Studio Setup</a></li>
+    </ul>
+
+    <div class="nav-group-title">Inventory & Physics</div>
+    <ul class="nav-links">
+      <li><a href="#items-catalog">Items Catalog</a></li>
+      <li><a href="#item-groups">Item Groups</a></li>
+      <li><a href="#custom-items">Custom Items</a></li>
+      <li><a href="#targets">Collision Targets</a></li>
+      <li><a href="#trajectories">Spawn Trajectories</a></li>
+      <li><a href="#audio-engine">Web Audio Engine</a></li>
+    </ul>
+
+    <div class="nav-group-title">API & Automation</div>
+    <ul class="nav-links">
+      <li><a href="#api-throw">POST & GET /throw</a></li>
+      <li><a href="#api-mix">Random Mix & Filters</a></li>
+      <li><a href="#api-collision">POST & GET /collision</a></li>
+      <li><a href="#api-collisions">GET /collisions (Stats)</a></li>
+      <li><a href="#api-items">GET /items</a></li>
+      <li><a href="#api-targets">GET & POST /targets</a></li>
+      <li><a href="#api-clear">POST & GET /clear</a></li>
+      <li><a href="#api-webhooks">Collision Webhooks</a></li>
+      <li><a href="#websocket">WebSocket Protocol</a></li>
+      <li><a href="#bot-recipes">Stream Bot Recipes</a></li>
+      <li><a href="#config-json">Configuration File</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Documentation Content -->
+  <main class="content">
+
+    <h1 id="overview">Yeet Documentation & API Reference</h1>
+    <div class="subtitle">Wayland-native interactive stream throwing system and 2D physics overlay for OBS Studio</div>
+
+    <div class="alert alert-info">
+      <strong>KDE 6 & Wayland Native:</strong> Yeet is designed according to modern KDE Human Interface Guidelines (HIG) with Qt6, providing low-latency Matter.js physics and Web Audio playback for livestreamers and VTubers on Linux.
+    </div>
+
+    <!-- Section 1: Overview -->
+    <h2>🎯 System Overview</h2>
+    <p>
+      Yeet allows streamers to set up 2D collision targets (around their VTuber avatar or webcam frame), throw items using chat commands or channel points, and display dynamic physics impacts inside OBS Studio without third-party cloud dependencies.
+    </p>
+
+    <!-- Section 2: OBS Studio Integration -->
+    <h2 id="obs-integration">🎥 OBS Studio Integration</h2>
+    <p>The visual physics simulation and procedural audio run via an HTML5 canvas inside OBS Studio.</p>
+
+    <div class="card">
+      <div class="card-title">Browser Source Setup Instructions</div>
+      <ol style="margin-left: 20px; line-height: 1.8; color: var(--text-muted);">
+        <li>Open <strong>OBS Studio</strong>.</li>
+        <li>In your streaming scene's <strong>Sources</strong> dock, click <strong>+</strong> and choose <strong>Browser</strong>.</li>
+        <li>Set the Source Name to <code>Yeet Physics Overlay</code>.</li>
+        <li>Configure the properties:
+          <ul style="margin-left: 20px; margin-top: 6px;">
+            <li><strong>URL:</strong> <code>http://127.0.0.1:49122/overlay</code></li>
+            <li><strong>Width & Height:</strong> <code>1920</code> × <code>1080</code> (or match your canvas base resolution).</li>
+            <li><strong>Custom frame rate:</strong> Checked, set to <code>60</code> FPS.</li>
+            <li><strong>Shutdown source when not visible:</strong> <strong>UNCHECKED</strong> <em>(crucial to maintain WebSocket connection)</em>.</li>
+            <li><strong>Refresh browser when scene becomes active:</strong> <strong>UNCHECKED</strong>.</li>
+          </ul>
+        </li>
+        <li>Click <strong>OK</strong> and click <strong>Test Throw</strong> in Yeet to verify!</li>
+      </ol>
+    </div>
+
+    <!-- Section 3: Available Items Catalog -->
+    <h2 id="items-catalog">📦 Available Throwable Items Catalog</h2>
+    <p>
+      Yeet ships with <strong>7 preset items</strong>, each with distinctive aerodynamic properties, restitution, mass, and procedural collision sound effects:
+    </p>
+
+    <div class="item-grid">
+      <!-- Item 1: Tomato -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/tomato.svg" alt="Ripe Tomato">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Ripe Tomato</div>
+            <div class="item-id-badge">tomato</div>
+          </div>
+          <span class="badge badge-food">food</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">0.8 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.08</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.40</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">1.5×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">1.00×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">8.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">squish</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">0.90</span></div>
+        </div>
+      </div>
+
+      <!-- Item 2: Brick -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/brick.svg" alt="Red Brick">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Red Brick</div>
+            <div class="item-id-badge">brick</div>
+          </div>
+          <span class="badge badge-construction">construction</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">2.5 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.09</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.25</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">0.8×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">1.30×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">10.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">thud</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">1.00</span></div>
+        </div>
+      </div>
+
+      <!-- Item 3: Cream Pie -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/pie.svg" alt="Cream Pie">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Cream Pie</div>
+            <div class="item-id-badge">pie</div>
+          </div>
+          <span class="badge badge-food">food</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">0.9 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.10</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.30</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">1.2×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">0.90×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">8.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">squish</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">0.95</span></div>
+        </div>
+      </div>
+
+      <!-- Item 4: Rubber Duck -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/rubber_duck.svg" alt="Rubber Duck">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Rubber Duck</div>
+            <div class="item-id-badge">rubber_duck</div>
+          </div>
+          <span class="badge badge-toys">toys</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">0.5 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.08</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.85</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">2.0×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">0.80×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">12.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">bonk</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">0.85</span></div>
+        </div>
+      </div>
+
+      <!-- Item 5: Water Balloon -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/water_balloon.svg" alt="Water Balloon">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Water Balloon</div>
+            <div class="item-id-badge">water_balloon</div>
+          </div>
+          <span class="badge badge-summer">summer</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">0.7 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.08</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.45</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">1.3×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">1.00×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">7.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">squish</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">0.90</span></div>
+        </div>
+      </div>
+
+      <!-- Item 6: Heart Plushie -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/heart.svg" alt="Heart Plushie">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Heart Plushie</div>
+            <div class="item-id-badge">heart</div>
+          </div>
+          <span class="badge badge-cute">cute</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">0.4 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.09</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.70</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">1.0×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">0.70×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">9.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">pop</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">0.80</span></div>
+        </div>
+      </div>
+
+      <!-- Item 7: Beach Ball -->
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-icon-box">
+            <img src="assets/items/beachball.svg" alt="Beach Ball">
+          </div>
+          <div class="item-info">
+            <div class="item-name">Beach Ball</div>
+            <div class="item-id-badge">beachball</div>
+          </div>
+          <span class="badge badge-summer">summer</span>
+        </div>
+        <div class="item-props">
+          <div class="prop-row"><span class="prop-label">Mass:</span><span class="prop-val">0.25 kg</span></div>
+          <div class="prop-row"><span class="prop-label">Scale:</span><span class="prop-val">0.13</span></div>
+          <div class="prop-row"><span class="prop-label">Bounciness:</span><span class="prop-val">0.92</span></div>
+          <div class="prop-row"><span class="prop-label">Spin:</span><span class="prop-val">1.5×</span></div>
+          <div class="prop-row"><span class="prop-label">Gravity:</span><span class="prop-val">0.45×</span></div>
+          <div class="prop-row"><span class="prop-label">Lifetime:</span><span class="prop-val">14.0 s</span></div>
+          <div class="prop-row"><span class="prop-label">Sound:</span><span class="prop-val">pop</span></div>
+          <div class="prop-row"><span class="prop-label">Volume:</span><span class="prop-val">0.85</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Available Item Groups -->
+    <h2 id="item-groups">🏷️ Available Item Groups</h2>
+    <p>
+      Groups allow filtering projectiles so viewers can redeem whole categories (e.g. food fights or summer games), or exclude heavy items:
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Group Tag</th>
+          <th>Included Preset Items</th>
+          <th>Physical Characteristics</th>
+          <th>Suggested Stream Uses</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-food">food</span></td>
+          <td><code>tomato</code>, <code>pie</code></td>
+          <td>Low restitution, high spin, wet procedural squish audio</td>
+          <td>Cooking streams, comedy chat redeems, food fight barrages</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-construction">construction</span></td>
+          <td><code>brick</code></td>
+          <td>High mass (2.5kg), low bounce, fast gravity drop, deep dull thud</td>
+          <td>Boss attack raids, high bits donations, heavy punishment</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-toys">toys</span></td>
+          <td><code>rubber_duck</code></td>
+          <td>Lightweight, fast spin (2.0×), high elasticity (0.85), cartoon bonk</td>
+          <td>Follower greetings, bouncy stream chaos, cheerful cartoon bonks</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-summer">summer</span></td>
+          <td><code>beachball</code>, <code>water_balloon</code></td>
+          <td>Ultra-high bounciness (0.92), floaty gravity (0.45), splash audio</td>
+          <td>Beach party streams, subathon milestones, floaty physics</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-cute">cute</span></td>
+          <td><code>heart</code></td>
+          <td>Soft mass, gentle pop sound effect, pleasant floating arcs</td>
+          <td>Sub gifts, cheer appreciation, love & cozy stream redeems</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-default">default</span></td>
+          <td><em>(Custom items)</em></td>
+          <td>User-defined</td>
+          <td>Fallback category for newly imported items without a tag</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 5: Custom Items -->
+    <h2 id="custom-items">✨ Adding Custom Items & Groups</h2>
+    <p>Streamers can add an unlimited number of custom throwable items with their own images and sound effects:</p>
+    <ul>
+      <li><strong>Supported Image Formats:</strong> SVG, PNG, WebP, GIF.</li>
+      <li><strong>Supported Audio Formats:</strong> Built-in procedural synths (<code>squish</code>, <code>bonk</code>, <code>thud</code>, <code>pop</code>, <code>clang</code>) or custom audio files (<code>.wav</code>, <code>.mp3</code>, <code>.ogg</code>).</li>
+      <li><strong>Group Tags:</strong> Assign any arbitrary string (e.g. <code>pokemon</code>, <code>spooky</code>, <code>weapons</code>) in the GUI or <code>config.json</code>.</li>
+    </ul>
+
+    <!-- Section 6: Collision Targets -->
+    <h2 id="targets">🎯 Collision Targets & Relative Coordinates</h2>
+    <p>
+      Targets define the solid obstacle geometries in the OBS overlay where projectiles bounce and trigger webhooks.
+      All coordinates use <strong>normalized relative units (0.0 to 1.0)</strong>, ensuring target boundaries stay aligned across 1080p, 1440p, 4K, or vertical mobile streams.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Target Shape</th>
+          <th>Type Key</th>
+          <th>Key Parameters</th>
+          <th>Best Used For</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Capsule / Pill</strong></td>
+          <td><code>capsule</code></td>
+          <td><code>x</code>, <code>y</code>, <code>width</code>, <code>height</code>, <code>rotation</code></td>
+          <td>VTuber torso, arms, legs, elongated avatars</td>
+        </tr>
+        <tr>
+          <td><strong>Circle / Ellipse</strong></td>
+          <td><code>circle</code></td>
+          <td><code>x</code>, <code>y</code>, <code>radius</code>, <code>rotation</code></td>
+          <td>VTuber head, circular webcams, badges, mascots</td>
+        </tr>
+        <tr>
+          <td><strong>Rectangle / Box</strong></td>
+          <td><code>box</code></td>
+          <td><code>x</code>, <code>y</code>, <code>width</code>, <code>height</code>, <code>rotation</code></td>
+          <td>Rectangular webcams, chat boxes, stream overlays</td>
+        </tr>
+        <tr>
+          <td><strong>Custom Polygon</strong></td>
+          <td><code>polygon</code></td>
+          <td><code>points: [[x, y], ...]</code></td>
+          <td>Complex avatar silhouettes, hats, wings, props</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 7: Spawn Trajectories -->
+    <h2 id="trajectories">🚀 Spawn Trajectories & Ballistics</h2>
+    <p>When triggering a throw, configure <code>spawn_direction</code>:</p>
+    <ul>
+      <li><code>aimed</code> <em>(Default)</em>: Solves ballistic trajectory equations to aim directly at target center, factoring gravity and distance.</li>
+      <li><code>rain</code>: Drops items randomly across the top border with world gravity.</li>
+      <li><code>left</code>, <code>right</code>, <code>top</code>, <code>bottom</code>: Launches from the chosen screen border toward the center.</li>
+      <li><code>random</code>: Selects an offscreen edge at random.</li>
+      <li><code>spray</code>: Spawns from a fixed origin coordinate (<code>spawn_point</code>) with an adjustable angle (<code>spray_angle</code>).</li>
+    </ul>
+
+    <!-- Section 8: Web Audio Engine -->
+    <h2 id="audio-engine">🔊 Low-Latency Web Audio Engine</h2>
+    <p>
+      Yeet includes an embedded Web Audio synthesizer that creates rich procedural impacts directly in OBS without loading external sound files:
+    </p>
+    <ul>
+      <li><strong>Procedural Synthesizers:</strong> <code>squish</code> (triangle frequency sweep + filtered noise), <code>bonk</code> (resonant cartoon sweep), <code>thud</code> (low-frequency punch), <code>pop</code> (bubble pop chirp), <code>clang</code> (metallic dual-oscillator chime).</li>
+      <li><strong>Dynamic Limiter:</strong> Master <code>DynamicsCompressorNode</code> prevents clipping or ear fatigue during barrages.</li>
+      <li><strong>Pitch Randomization:</strong> Every hit alters pitch by $\pm$<code>pitch_randomness</code> so sounds stay dynamic.</li>
+      <li><strong>Sound Debounce:</strong> Configurable <code>sound_debounce_ms</code> (default: 50ms) suppresses overlapping audio bursts.</li>
+    </ul>
+
+    <!-- Section 9: Local REST API Reference -->
+    <h2>📡 REST API Reference</h2>
+    <p>The local daemon listens on <code>http://127.0.0.1:49122</code>. All endpoints accept CORS.</p>
+
+    <!-- Endpoint: /api/v1/throw -->
+    <div class="endpoint" id="api-throw">
+      <div class="endpoint-header">
+        <span class="badge-method badge-post">POST</span>
+        <span class="badge-method badge-get">GET</span>
+        <span class="endpoint-path">/api/v1/throw</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Spawns throwable items with trajectory physics into the OBS overlay.</p>
+        
+        <h4>Query / JSON Body Parameters:</h4>
+        <table>
+          <thead>
+            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>item</code></td><td>string</td><td><code>"random"</code></td><td>Item ID, <code>"random"</code>, or <code>"random_mix"</code></td></tr>
+            <tr><td><code>items</code></td><td>string</td><td><code>null</code></td><td>Candidate items for mix: <code>"all"</code> or <code>"tomato,pie,brick"</code></td></tr>
+            <tr><td><code>group</code></td><td>string</td><td><code>null</code></td><td>Filter candidate pool by group tag (e.g. <code>"summer"</code>, <code>"food"</code>)</td></tr>
+            <tr><td><code>item_exclude</code></td><td>string</td><td><code>null</code></td><td>Exclude item IDs or groups (e.g. <code>"construction,winter"</code>)</td></tr>
+            <tr><td><code>amount</code></td><td>integer</td><td><code>1</code></td><td>Projectile count (1 – 100)</td></tr>
+            <tr><td><code>spawn_direction</code></td><td>string</td><td>configured</td><td><code>"aimed"</code>, <code>"rain"</code>, <code>"left"</code>, <code>"right"</code>, <code>"top"</code>, <code>"bottom"</code>, <code>"random"</code>, <code>"spray"</code></td></tr>
+            <tr><td><code>force</code></td><td>float</td><td><code>1.0</code></td><td>Velocity multiplier (0.1 – 5.0)</td></tr>
+            <tr><td><code>spread</code></td><td>float</td><td><code>15.0</code></td><td>Spread angle variance in degrees</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Example 1: Single Throw (POST JSON)</h4>
+        <pre><code>curl -X POST http://127.0.0.1:49122/api/v1/throw \
+  -H "Content-Type: application/json" \
+  -d '{"item": "brick", "amount": 3, "spawn_direction": "aimed", "force": 1.2}'</code></pre>
+
+        <h4>Example 2: Quick Throw (GET Query String)</h4>
+        <pre><code>curl "http://127.0.0.1:49122/api/v1/throw?item=beachball&amount=5&spawn_direction=rain"</code></pre>
+      </div>
+    </div>
+
+    <!-- Random Mix & Filtering -->
+    <div class="card" id="api-mix">
+      <div class="card-title">Random Mix Mode & Group Filtering Examples</div>
+      <p>When <code>item=random_mix</code> is used, each projectile is chosen randomly from the filtered pool:</p>
+      
+      <h4>Throw 6 items from the summer group:</h4>
+      <pre><code>curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&group=summer&amount=6"</code></pre>
+
+      <h4>Throw all items except construction (no bricks):</h4>
+      <pre><code>curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&group_exclude=construction&amount=8"</code></pre>
+
+      <h4>Throw all items excluding food and construction:</h4>
+      <pre><code>curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=food,construction&amount=10"</code></pre>
+    </div>
+
+    <!-- Endpoint: /api/v1/collision -->
+    <div class="endpoint" id="api-collision">
+      <div class="endpoint-header">
+        <span class="badge-method badge-post">POST</span>
+        <span class="badge-method badge-get">GET</span>
+        <span class="endpoint-path">/api/v1/collision</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Triggers an <strong>instant collision impact</strong> on a target without waiting for projectile flight delay. Plays sound with pitch variance, spawns particle burst, and registers in statistics.</p>
+        <pre><code># Direct slap with Cream Pie
+curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=pie&sound=squish"</code></pre>
+      </div>
+    </div>
+
+    <!-- Endpoint: /api/v1/collisions -->
+    <div class="endpoint" id="api-collisions">
+      <div class="endpoint-header">
+        <span class="badge-method badge-get">GET</span>
+        <span class="endpoint-path">/api/v1/collisions</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Retrieves total collision count, breakdown by target, breakdown by item, and the recent log.</p>
+        <pre><code>curl http://127.0.0.1:49122/api/v1/collisions</code></pre>
+        <p>To reset counters to zero: <code>POST /api/v1/collisions/reset</code></p>
+      </div>
+    </div>
+
+    <!-- Endpoint: /api/v1/items -->
+    <div class="endpoint" id="api-items">
+      <div class="endpoint-header">
+        <span class="badge-method badge-get">GET</span>
+        <span class="endpoint-path">/api/v1/items</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns all configured throwable items and their physical parameters. Supports <code>?group=<name></code> filtering.</p>
+        <pre><code>curl "http://127.0.0.1:49122/api/v1/items?group=summer"</code></pre>
+      </div>
+    </div>
+
+    <!-- Endpoint: /api/v1/targets -->
+    <div class="endpoint" id="api-targets">
+      <div class="endpoint-header">
+        <span class="badge-method badge-get">GET</span>
+        <span class="badge-method badge-post">POST</span>
+        <span class="endpoint-path">/api/v1/targets</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Get or dynamically update collision target boundaries.</p>
+        <pre><code>curl http://127.0.0.1:49122/api/v1/targets</code></pre>
+      </div>
+    </div>
+
+    <!-- Endpoint: /api/v1/clear -->
+    <div class="endpoint" id="api-clear">
+      <div class="endpoint-header">
+        <span class="badge-method badge-post">POST</span>
+        <span class="badge-method badge-get">GET</span>
+        <span class="endpoint-path">/api/v1/clear</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Immediately despawns all active physics bodies from all connected OBS browser sources.</p>
+        <pre><code>curl -X POST http://127.0.0.1:49122/api/v1/clear</code></pre>
+      </div>
+    </div>
+
+    <!-- Section 10: Webhooks & Barrage Engine -->
+    <h2 id="api-webhooks">⚡ Collision Webhooks & Barrage Engine</h2>
+    <p>
+      Yeet includes an intelligent <strong>barrage settling engine</strong> designed to notify external software (e.g. VTube Studio, VNyan, Lumia Stream, Home Assistant) without flooding your network:
+    </p>
+    <ul>
+      <li><strong>First Hit URL:</strong> Dispatched <strong>immediately</strong> upon the very first impact of a throw (e.g. switch avatar expression to Dizzy or Hurt).</li>
+      <li><strong>Barrage Debounce:</strong> Continuing impacts during the barrage will not spam duplicate webhooks.</li>
+      <li><strong>Last Hit URL:</strong> Dispatched once no new impacts occur for the configured <strong>Settling Delay</strong> (default: <code>2.0s</code>). Restores neutral expression or normal lights.</li>
+    </ul>
+
+    <h4>Supported URL Placeholders:</h4>
+    <ul>
+      <li><code>{target}</code>: Target name (URL encoded, e.g. <code>VTuber+Head</code>).</li>
+      <li><code>{item}</code>: Item name that made impact (e.g. <code>Ripe+Tomato</code>).</li>
+      <li><code>{hits}</code>: Total collisions accumulated during the barrage.</li>
+      <li><code>{event}</code>: <code>first_hit</code> or <code>last_hit</code>.</li>
+    </ul>
+
+    <h4>Example VTube Studio Integration:</h4>
+    <pre><code>First Hit URL: http://127.0.0.1:8001/vts/hotkey?id=Expression_Dizzy
+Last Hit URL:  http://127.0.0.1:8001/vts/hotkey?id=Expression_Neutral</code></pre>
+
+    <!-- Section 11: WebSocket Protocol -->
+    <h2 id="websocket">🔌 WebSocket Protocol (`/ws`)</h2>
+    <p>OBS Browser Sources connect via <code>ws://127.0.0.1:49122/ws</code>.</p>
+    <ul>
+      <li><code>init</code>: Dispatches full configuration payload upon client connection.</li>
+      <li><code>throw</code>: Commands the overlay to spawn projectiles.</li>
+      <li><code>collision</code>: Commands an immediate impact burst and sound.</li>
+      <li><code>clear</code>: Removes all rigid bodies.</li>
+      <li><code>targets_updated</code>: Updates collider geometries in real time.</li>
+      <li><code>collision_event</code>: Sent from OBS to server when physics bodies collide.</li>
+    </ul>
+
+    <!-- Section 12: Stream Bot Recipes -->
+    <h2 id="bot-recipes">🤖 Stream Bot Recipes</h2>
+
+    <h3>Streamer.bot Sub-Action</h3>
+    <p>Add a Sub-Action: <strong>Network</strong> ➔ <strong>Fetch URL</strong>:</p>
+    <ul>
+      <li><strong>URL:</strong> <code>http://127.0.0.1:49122/api/v1/throw?item=tomato&amount=3&spawn_direction=aimed</code></li>
+      <li><strong>Method:</strong> <code>GET</code></li>
+    </ul>
+
+    <h3>Twitch Channel Points (Chat Commands)</h3>
+    <pre><code>!throw -> $(urlfetch http://127.0.0.1:49122/api/v1/throw?item=random&amount=2)
+!slap  -> $(urlfetch http://127.0.0.1:49122/api/v1/collision?item=pie)
+!hits  -> Total avatar hits: $(urlfetch http://127.0.0.1:49122/api/v1/collisions)</code></pre>
+
+    <!-- Section 13: Config JSON -->
+    <h2 id="config-json">⚙️ Configuration File (`~/.config/yeet/config.json`)</h2>
+    <pre><code>{
+  "targets": [
+    {
+      "id": "target_vtuber_body",
+      "name": "VTuber Torso",
+      "type": "capsule",
+      "x": 0.50,
+      "y": 0.65,
+      "width": 0.22,
+      "height": 0.40,
+      "radius": 0.1,
+      "rotation": 0.0,
+      "points": [],
+      "bounciness": 0.6,
+      "friction": 0.15
+    },
+    {
+      "id": "target_vtuber_head",
+      "name": "VTuber Head",
+      "type": "circle",
+      "x": 0.50,
+      "y": 0.35,
+      "radius": 0.12,
+      "bounciness": 0.75,
+      "friction": 0.1
+    }
+  ],
+  "items": { ... },
+  "physics": {
+    "gravity": [0.0, 1.0],
+    "default_spawn_direction": "aimed",
+    "default_force": 1.0,
+    "default_spread": 15.0,
+    "sound_debounce_ms": 50,
+    "max_active_items": 120
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 49122
+  },
+  "webhooks": {
+    "enabled": false,
+    "first_hit_url": "",
+    "first_hit_method": "GET",
+    "last_hit_url": "",
+    "last_hit_method": "GET",
+    "settling_delay": 2.0
+  }
+}</code></pre>
+
+  </main>
+</body>
+</html>

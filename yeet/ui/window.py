@@ -206,7 +206,7 @@ class YeetWindow(QtWidgets.QMainWindow):
         app_menu = QtWidgets.QMenu(menu_btn)
 
         clear_menu_act = app_menu.addAction(QtGui.QIcon.fromTheme("edit-clear"), "Clear Overlay (Ctrl+K)", self.trigger_clear)
-        open_browser_act = app_menu.addAction(QtGui.QIcon.fromTheme("web-browser"), "Open Overlay in Browser", self._on_docs_action)
+        open_browser_act = app_menu.addAction(QtGui.QIcon.fromTheme("web-browser"), "Open Overlay in Browser", self._on_open_overlay_action)
         app_menu.addSeparator()
         docs_act = app_menu.addAction(QtGui.QIcon.fromTheme("help-contents"), "Documentation (F1)", self._on_docs_action)
         about_act = app_menu.addAction(QtGui.QIcon.fromTheme("help-about"), "About Yeet", self._on_about_action)
@@ -297,6 +297,10 @@ class YeetWindow(QtWidgets.QMainWindow):
         self.target_view.canvas.setSpawnDirection(self.config_manager.physics.default_spawn_direction)
 
     def _on_docs_action(self):
+        url = f"http://{self.config_manager.server.host}:{self.config_manager.server.port}/docs"
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+
+    def _on_open_overlay_action(self):
         url = f"http://{self.config_manager.server.host}:{self.config_manager.server.port}/overlay"
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 

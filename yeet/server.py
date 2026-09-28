@@ -71,6 +71,9 @@ class ServerDaemon:
     async def handle_index(self, request: web.Request) -> web.Response:
         raise web.HTTPFound("/overlay/index.html")
 
+    async def handle_docs(self, request: web.Request) -> web.Response:
+        raise web.HTTPFound("/overlay/docs.html")
+
     async def handle_cors_preflight(self, request: web.Request) -> web.Response:
         headers = {
             "Access-Control-Allow-Origin": "*",
@@ -815,6 +818,10 @@ class ServerDaemon:
 
         # Static Overlay & Assets Routes
         app.router.add_get("/", self.handle_index)
+        app.router.add_get("/docs", self.handle_docs)
+        app.router.add_get("/docs.html", self.handle_docs)
+        app.router.add_get("/documentation", self.handle_docs)
+        app.router.add_get("/documentation.html", self.handle_docs)
         if os.path.exists(self.overlay_dir):
             app.router.add_static("/overlay", self.overlay_dir, show_index=True)
         if os.path.exists(self.assets_dir):

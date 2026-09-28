@@ -1,15 +1,22 @@
 # Yeet (`gay.geeks.Yeet`)
 
-> **Wayland-native, KDE 6 HIG-compliant interactive stream throwing system and 2D physics overlay for OBS Studio.**
+> **Wayland-native, KDE 6 HIG-compliant interactive stream throwing system and 2D physics overlay for OBS Studio.**  
 > A modern, open-source Linux alternative to Twitch Integrated Throwing System (T.I.T.S.).
+
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
+[![Documentation: CC0-1.0](https://img.shields.io/badge/Docs-CC0--1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
+[![Platform: Linux (Pure Wayland)](https://img.shields.io/badge/Platform-Linux%20Wayland-brightgreen.svg)](https://wayland.freedesktop.org/)
+[![Toolkit: Qt6 / KDE 6](https://img.shields.io/badge/UI-Qt6%20%2F%20KDE%206-blue.svg)](https://develop.kde.org/hig/)
 
 ---
 
 ## 🎯 Overview
 
-**Yeet** allows livestreamers and VTubers to configure customizable 2D collision targets (where thrown items hit a streamer's avatar or camera feed), set up multiple throwable items with collision sound effects and realistic trajectories, trigger throws via a local HTTP REST API, and render the physics overlay through an HTML5 browser source inside OBS Studio.
+**Yeet** allows livestreamers and VTubers to configure customizable 2D collision targets (where thrown items hit a streamer's avatar, webcam, or stream assets), set up multiple throwable items with procedural collision sound effects and realistic trajectories, trigger throws via a local HTTP REST API or chat bot redeems, and render the physics overlay through an HTML5 browser source inside OBS Studio.
 
 Built with **Qt6** and designed according to the **KDE Human Interface Guidelines (HIG)**, Yeet integrates seamlessly into KDE Plasma 6 on pure Wayland sessions with zero legacy X11 dependencies.
+
+> 📖 **Need the complete in-depth technical guide?** Check out the standalone [DOCUMENTATION.md](file:///home/cosmo/Projects/yeet/DOCUMENTATION.md).
 
 ---
 
@@ -18,25 +25,26 @@ Built with **Qt6** and designed according to the **KDE Human Interface Guideline
 - **Pure Wayland Desktop App (Qt6 / KDE 6 Native):**
   - Designed according to modern KDE 6 HIG with Breeze theme integration, navigation sidebar, card-based section layouts, and status pill badges.
   - Interactive coordinate mapper (`QPainter`) with direct mouse manipulation (drag center to move, corners to resize, top arm to rotate, vertices to reshape).
-  - Supports loading stream screenshots / avatar backdrops directly into the mapper for precision alignment.
+  - Supports loading stream screenshots / avatar backdrops directly into the mapper for precision collider alignment.
   - One-click button to copy the OBS Browser Source URL to clipboard with desktop toast notifications.
 - **Resolution-Independent Coordinates:**
   - All spatial dimensions, coordinates, velocities, and collider geometries use **normalized relative units (0.0 to 1.0)**.
-  - Consistent physics and collision behavior across 1080p, 1440p, 4K, or custom stream canvas aspect ratios.
+  - Consistent physics and collision behavior across 1080p, 1440p, 4K, or vertical (9:16) stream canvas aspect ratios.
 - **Collision Target Template Shapes:**
-  - **Capsule / Pill:** Standard for VTuber torsos, necks, and heads.
+  - **Capsule / Pill:** Standard for VTuber torsos, necks, and limbs.
   - **Rectangle / Box:** Ideal for webcams, chat boxes, and desktop windows.
   - **Circle / Ellipse:** Perfect for avatars, badges, and circular masks.
   - **Custom Polygon (Convex Hull):** Draggable anchor points with interactive vertex insertion (double-click) and deletion.
 - **Spawn Behaviors & Trajectories:**
+  - **Aimed Arc:** Calculates exact ballistic trajectory aimed directly at the target center with gravity compensation.
   - **Screen Edges:** Top, Bottom, Left, Right, or Random edge.
-  - **Aimed Arc:** Calculates exact ballistic trajectory aimed directly at the target center.
-  - **Rain / Dropping:** Top-down drop with world gravity.
+  - **Rain / Dropping:** Top-down drop with natural world gravity.
   - **Point-Source Spray:** Spawns from a custom origin point with adjustable spread angle.
-- **Throwable Items Inventory:**
+- **Throwable Items Inventory & Categorized Groups:**
   - Supports custom 2D images in PNG, WebP, GIF, and SVG formats.
   - Configurable properties: scale, mass, restitution (bounciness), spin / rotational speed, gravity scale, and lifetime.
   - Ships with preset items: Ripe Tomato, Red Brick, Cream Pie, Rubber Duck, Water Balloon, Beach Ball, and Heart Plushie.
+  - Full item grouping and filtering (`food`, `construction`, `toys`, `summer`, `cute`).
 - **Low-Latency Polyphonic Audio Engine:**
   - Powered by the Web Audio API with procedural sound synthesis ("squish", "bonk", "thud", "pop", "clang") or custom audio files (`.wav`, `.mp3`, `.ogg`).
   - Real-time pitch randomization on every impact to prevent repetitive ear fatigue.
@@ -45,121 +53,170 @@ Built with **Qt6** and designed according to the **KDE Human Interface Guideline
   - Lightweight async server running on `127.0.0.1:49122`.
   - Real-time two-way synchronization: configuration changes and target repositioning reflect immediately in OBS without reloading the browser source.
   - Clean REST API for bots (Streamer.bot, MixItUp, SAMMI, Twitch channel points, curl).
+  - Outbound First Hit / Last Hit webhooks with barrage settling detection for VTube Studio and smart lighting.
+
+---
+
+## 📦 Throwable Items & Groups Reference
+
+### Preset Items Catalog
+
+Yeet includes seven carefully tuned projectile presets out of the box:
+
+| Item ID | Display Name | Group | Asset Path | Scale | Mass | Bounciness | Spin | Gravity | Lifetime | Sound | Vol | Pitch Var |
+| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- | :---: | :---: |
+| `tomato` | **Ripe Tomato** | `food` | `/assets/items/tomato.svg` | `0.08` | `0.8` kg | `0.40` | `1.5` | `1.00` | `8.0` s | `squish` | `0.90` | `0.20` |
+| `brick` | **Red Brick** | `construction` | `/assets/items/brick.svg` | `0.09` | `2.5` kg | `0.25` | `0.8` | `1.30` | `10.0` s | `thud` | `1.00` | `0.15` |
+| `pie` | **Cream Pie** | `food` | `/assets/items/pie.svg` | `0.10` | `0.9` kg | `0.30` | `1.2` | `0.90` | `8.0` s | `squish` | `0.95` | `0.25` |
+| `rubber_duck` | **Rubber Duck** | `toys` | `/assets/items/rubber_duck.svg` | `0.08` | `0.5` kg | `0.85` | `2.0` | `0.80` | `12.0` s | `bonk` | `0.85` | `0.30` |
+| `water_balloon` | **Water Balloon** | `summer` | `/assets/items/water_balloon.svg` | `0.08` | `0.7` kg | `0.45` | `1.3` | `1.00` | `7.0` s | `squish` | `0.90` | `0.20` |
+| `heart` | **Heart Plushie** | `cute` | `/assets/items/heart.svg` | `0.09` | `0.4` kg | `0.70` | `1.0` | `0.70` | `9.0` s | `pop` | `0.80` | `0.25` |
+| `beachball` | **Beach Ball** | `summer` | `/assets/items/beachball.svg` | `0.13` | `0.25` kg | `0.92` | `1.5` | `0.45` | `14.0` s | `pop` | `0.85` | `0.25` |
+
+---
+
+### Item Groups & Intended Uses
+
+Groups categorize items so streamers can trigger thematic barrages, allow viewers to choose categories, or exclude certain classes of items:
+
+| Group Name | Included Preset Items | Suggested Stream Uses |
+| :--- | :--- | :--- |
+| `food` | `tomato`, `pie` | Slapstick food fights, cooking stream channel points, pun punishments |
+| `construction` | `brick` | High-impact punishment, raid barrages, big bit cheers |
+| `toys` | `rubber_duck` | Playful viewer greetings, cartoon bonks, high-bounce chaos |
+| `summer` | `beachball`, `water_balloon` | Beach / pool party streams, floaty low-gravity barrages |
+| `cute` | `heart` | Sub gifts, tier milestones, love / hug redeems |
+| `default` | *(Fallback group)* | Custom items created without an explicit group tag |
+
+---
+
+### Group Filtering & Exclusion Rules
+
+When invoking the REST API (`/api/v1/throw`), you can control item pools using these rules:
+- **Throw by Group:** `group=summer` or `group=food,toys` (aliases: `item_group`, `groups`, `item_groups`).
+- **Include Specific Items + Groups:** `items=brick&group=summer` (throws bricks plus beachballs and water balloons).
+- **Exclude Groups or Items:** `items=all&group_exclude=construction` or `item_exclude=food,brick` (aliases: `exclude`, `items_exclude`, `exclude_group`, `exclude_item`).
+- **Random Mix Mode:** Setting `item=random_mix` causes each projectile in a barrage (`amount > 1`) to be randomly and independently sampled from the resolved candidate pool.
 
 ---
 
 ## 📡 REST API Reference
 
-The local HTTP server listens by default on `http://127.0.0.1:49122`.
+The local HTTP server listens by default on `http://127.0.0.1:49122`. All endpoints support **CORS** (`Access-Control-Allow-Origin: *`).
 
 ### 1. Trigger a Throw
-- **Endpoint:** `POST /api/v1/throw`
-- **Headers:** `Content-Type: application/json`
-- **Body:**
-  ```json
-  {
-    "item": "brick",
-    "amount": 5,
-    "spawn_direction": "left",
-    "force": 1.2,
-    "spread": 15.0
-  }
-  ```
-  - `item` *(optional)*: Item ID or name (`"beachball"`, `"brick"`, `"tomato"`, `"pie"`, `"rubber_duck"`, `"water_balloon"`, `"heart"`), `"random"`, or `"random_mix"`.
-  - `items` *(optional for random_mix)*: `"all"` or comma-separated list / JSON array of item IDs or names (e.g. `items=pie,beachball,brick`).
-  - `group` / `item_group` *(optional)*: Filter candidate pool by item group tag (e.g. `group=summer`, `group=food`).
-  - `item_exclude` / `group_exclude` / `exclude` *(optional)*: Exclude items or entire groups. Supports comma-separated values (e.g. `item_exclude=winter,food`) or repeated query parameters.
-  - `amount` *(optional, default: 1)*: Number of items to spawn.
-  - `spawn_direction` *(optional, default: configured)*: `"left"`, `"right"`, `"top"`, `"bottom"`, `"random"`, `"aimed"`, `"rain"`, or `"spray"`.
-  - `force` *(optional, default: 1.0)*: Velocity multiplier.
-  - `spread` *(optional, default: 15.0)*: Angle variance in degrees.
+- **Endpoint:** `POST /api/v1/throw` or `GET /api/v1/throw`
+- **Headers:** `Content-Type: application/json` *(for POST)*
+- **Parameters (JSON Body or URL Query String):**
+  - `item` *(optional, default: "random")*: Item ID (`"brick"`, `"tomato"`, etc.), `"random"`, or `"random_mix"` / `"mix"`.
+  - `items` *(optional for random_mix)*: `"all"` or comma-separated list of item IDs/names.
+  - `group` / `item_group` *(optional)*: Filter pool by group name (`"summer"`, `"food"`, etc.).
+  - `item_exclude` / `group_exclude` / `exclude` *(optional)*: Exclude items or groups.
+  - `amount` *(optional, default: 1)*: Number of projectiles (`1` – `100`).
+  - `spawn_direction` / `direction` *(optional, default: configured)*: `"aimed"`, `"left"`, `"right"`, `"top"`, `"bottom"`, `"random"`, `"rain"`, or `"spray"`.
+  - `force` *(optional, default: 1.0)*: Velocity multiplier (`0.1` – `5.0`).
+  - `spread` *(optional, default: 15.0)*: Launch angle variance in degrees.
 
-**Example 1: POST with JSON Body (Streamer.bot / Webhooks / Scripts)**
+**Example 1: POST JSON (Streamer.bot / Webhooks / Scripts)**
 ```bash
 curl -X POST http://127.0.0.1:49122/api/v1/throw \
   -H "Content-Type: application/json" \
   -d '{"item": "beachball", "amount": 3, "spawn_direction": "aimed", "force": 1.2}'
 ```
 
-**Example 2: GET with URL Query Parameters (Browser Bookmarks / Chat Bots / Quick Links)**
+**Example 2: GET with Query String (Chat Bots / Bookmarks)**
 ```bash
 curl "http://127.0.0.1:49122/api/v1/throw?item=beachball&amount=3&spawn_direction=rain&force=1.2"
 ```
 
-**Example 3: Random Mix (All items excluding a group, e.g. winter)**
-```bash
-curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter&amount=5"
-```
-
-**Example 4: Random Mix from a specific item group (e.g. summer)**
+**Example 3: Random Mix from a specific item group (e.g. summer)**
 ```bash
 curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&group=summer&amount=4"
 ```
 
-**Example 5: Random Mix excluding multiple groups (comma-separated)**
+**Example 4: Random Mix excluding multiple groups (comma-separated)**
 ```bash
 curl "http://127.0.0.1:49122/api/v1/throw?item=random_mix&items=all&item_exclude=winter,food&amount=6"
 ```
 
-> **Note:** In `random_mix` mode, each individual projectile in the barrage is randomly selected independently from the resolved pool. Parameters can be passed via either JSON payload or URL query string, on both `POST` and `GET` requests.
+---
 
-### 2. Trigger a Collision Event (GET & POST)
+### 2. Trigger an Immediate Collision Event
 - **Endpoint:** `GET /api/v1/collision` or `POST /api/v1/collision`
-- Simulates an immediate collision directly on an avatar target (e.g. for channel point redeems like "!slap" or "!bonk" without waiting for projectile flight time). Plays the collision sound effect with pitch randomization and spawns an impact particle burst in OBS!
-- **Query Parameters / JSON:**
-  - `target` *(optional)*: Target ID or name (e.g. `"VTuber Head"`, `"target_vtuber_body"`). Defaults to primary target if omitted.
-  - `item` *(optional)*: Item to simulate impact for (e.g. `"beachball"`, `"brick"`, `"tomato"`).
-  - `sound` *(optional)*: Sound effect override (`"pop"`, `"bonk"`, `"squish"`, `"thud"`, `"clang"`).
-  - `volume` *(optional)*: Volume multiplier ($0.0$ to $1.0$).
+- Simulates an immediate impact directly on an avatar target (e.g. for channel point redeems like "!slap" or "!bonk" without waiting for projectile flight time). Plays the collision sound effect with pitch randomization and spawns an impact particle burst in OBS!
+- **Parameters:**
+  - `target` / `target_id` *(optional)*: Target ID or name (e.g. `"VTuber Head"`). Defaults to primary target.
+  - `item` *(optional)*: Item to simulate impact for (e.g. `"pie"`, `"brick"`).
+  - `sound` *(optional)*: Sound override (`"squish"`, `"bonk"`, `"thud"`, `"pop"`, `"clang"`).
+  - `volume` *(optional)*: Volume multiplier (`0.0` – `1.0`).
 
 ```bash
-# Direct collision via GET
-curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=beachball&sound=pop"
-
-# Direct collision via POST
-curl -X POST http://127.0.0.1:49122/api/v1/collision \
-  -H "Content-Type: application/json" \
-  -d '{"target": "VTuber Head", "item": "pie", "sound": "squish"}'
+# Direct slap with Cream Pie
+curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=pie&sound=squish"
 ```
+
+---
 
 ### 3. Collision Statistics & Counters
 - **Endpoint:** `GET /api/v1/collisions`
-- Returns total impact counts, breakdown by target, breakdown by item, and the recent collision log. Ideal for chat commands like `!hits` or stream leaderboard overlays.
+- Returns total impact counts, breakdown by target, breakdown by item, and recent collision logs.
 - Reset counter endpoint: `GET /api/v1/collisions/reset` or `POST /api/v1/collisions/reset`.
 
 ```bash
 curl http://127.0.0.1:49122/api/v1/collisions
 ```
 
+---
+
 ### 4. Clear Active Items
 - **Endpoint:** `POST /api/v1/clear` or `GET /api/v1/clear`
 - Immediately removes all active physics bodies from all connected OBS browser sources.
 
 ```bash
-curl http://127.0.0.1:49122/api/v1/clear
+curl -X POST http://127.0.0.1:49122/api/v1/clear
 ```
+
+---
 
 ### 5. List Throwable Items
 - **Endpoint:** `GET /api/v1/items`
-- Returns an array of configured items and their physical/audio parameters.
+- Returns an array of configured items and their physical/audio parameters. Supports optional `?group=<name>` filtering.
 
 ```bash
+# All items
 curl http://127.0.0.1:49122/api/v1/items
+
+# Filter by group
+curl "http://127.0.0.1:49122/api/v1/items?group=summer"
 ```
 
-### 6. Health & Status Check
-- **Endpoint:** `GET /api/v1/status`
-- Returns daemon uptime, active target count, total collisions, and connected OBS overlay count.
+---
+
+### 6. Manage Collision Targets
+- **Endpoint:** `GET /api/v1/targets` and `POST /api/v1/targets`
+- Fetch or update the collision boundaries dynamically.
+
+```bash
+curl http://127.0.0.1:49122/api/v1/targets
+```
+
+---
+
+### 7. Daemon Status & Client Config
+- **Status:** `GET /api/v1/status` (uptime, active targets, connected overlays, total hits)
+- **Config:** `GET /api/v1/config` (full client targets, items, and physics configuration)
 
 ```bash
 curl http://127.0.0.1:49122/api/v1/status
 ```
 
-### 7. First Hit & Last Hit Collision Webhooks
+---
+
+### 8. First Hit & Last Hit Collision Webhooks
 Yeet features an intelligent **barrage settling engine** that triggers outbound HTTP requests to external software (such as VTube Studio, VNyan, Lumia Stream, Streamer.bot, or smart lights):
-- **First Hit URL:** Fired **immediately** upon the very first impact of a throw or barrage (e.g., trigger a shocked/hurt expression or scream sound).
+- **First Hit URL:** Fired **immediately** upon the very first impact of a throw or barrage (e.g. trigger a shocked VTuber expression or flash studio lights red).
 - **Barrage Debounce:** Intermediate impacts occurring while items are continuously pelting the target will *not* flood your external webhooks.
-- **Last Hit URL:** Fired once the barrage settles and no new collisions occur for the configured **Settling Delay** (default: `2.0` seconds). Perfect for restoring a neutral VTuber expression, turning studio lights back to normal, or reporting the final count of hits!
+- **Last Hit URL:** Fired once the barrage settles and no new collisions occur for the configured **Settling Delay** (default: `2.0` seconds). Perfect for restoring a neutral VTuber expression or returning lights to normal.
 
 #### URL Template Placeholders
 Both GET and POST URLs support dynamic string interpolation:
@@ -168,15 +225,7 @@ Both GET and POST URLs support dynamic string interpolation:
 - `{hits}`: Total number of collisions accumulated during this barrage
 - `{event}`: `"first_hit"` or `"last_hit"`
 
-#### Example Use Cases
-- **VTube Studio Expression Switching:**
-  - First Hit: `POST http://127.0.0.1:8001/vts/hotkey?id=Expression_Dizzy`
-  - Last Hit: `POST http://127.0.0.1:8001/vts/hotkey?id=Expression_Neutral`
-- **Streamer.bot / Home Assistant Lighting:**
-  - First Hit: Flash lights red on first impact
-  - Last Hit: Restore ambient lighting after barrage settles
-
-#### Webhook API Endpoints
+#### Webhook Endpoints
 - `GET /api/v1/webhooks`: View current webhook settings
 - `POST /api/v1/webhooks`: Update webhook settings dynamically
 - `GET /api/v1/webhooks/test?event=first_hit`: Test the first hit trigger
@@ -235,6 +284,7 @@ You can run Yeet directly without system installation:
 
 ```
 yeet/
+├── DOCUMENTATION.md                    # Comprehensive technical manual & API reference
 ├── data/
 │   ├── gay.geeks.Yeet.desktop.in       # FreeDesktop application entry (Qt/KDE)
 │   ├── gay.geeks.Yeet.metainfo.xml.in  # AppStream metainfo specification
@@ -290,5 +340,5 @@ yeet/
 
 ## ⚖️ License
 
-Yeet is free and open-source software licensed under the **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`).
+Yeet is free and open-source software licensed under the **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`).  
 The metadata and documentation are licensed under **CC0-1.0**.

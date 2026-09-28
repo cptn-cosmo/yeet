@@ -7,11 +7,17 @@ import os
 from ..qt_compat import QtCore, QtGui, QtWidgets, Qt
 
 class AboutDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, config_manager=None):
         super().__init__(parent)
         self.setWindowTitle("About Yeet")
         self.setMinimumSize(540, 440)
         self.resize(560, 480)
+
+        port = 49122
+        if config_manager and hasattr(config_manager, "server"):
+            port = config_manager.server.port
+        elif parent and hasattr(parent, "config_manager") and hasattr(parent.config_manager, "server"):
+            port = parent.config_manager.server.port
 
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 16)
@@ -76,6 +82,11 @@ class AboutDialog(QtWidgets.QDialog):
         gh_link = QtWidgets.QLabel('<a href="https://github.com/geeks/yeet" style="color: #3daee9;">https://github.com/geeks/yeet</a>')
         gh_link.setOpenExternalLinks(True)
         links_form.addRow("<b>Homepage:</b>", gh_link)
+
+        docs_url = f"http://127.0.0.1:{port}/docs"
+        docs_link = QtWidgets.QLabel(f'<a href="{docs_url}" style="color: #3daee9;">{docs_url}</a>')
+        docs_link.setOpenExternalLinks(True)
+        links_form.addRow("<b>Documentation:</b>", docs_link)
 
         issues_link = QtWidgets.QLabel('<a href="https://github.com/geeks/yeet/issues" style="color: #3daee9;">https://github.com/geeks/yeet/issues</a>')
         issues_link.setOpenExternalLinks(True)
