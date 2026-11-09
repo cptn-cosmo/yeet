@@ -16,7 +16,17 @@
 
 Built with **Qt6** and designed according to the **KDE Human Interface Guidelines (HIG)**, Yeet integrates seamlessly into KDE Plasma 6 on pure Wayland sessions with zero legacy X11 dependencies.
 
-> 📖 **Need the complete in-depth technical guide?** Check out the standalone [DOCUMENTATION.md](file:///home/cosmo/Projects/yeet/DOCUMENTATION.md).
+> 📖 **Need the complete in-depth technical guide?** Check out the standalone [DOCUMENTATION.md](DOCUMENTATION.md).
+
+---
+
+## 📸 Screenshots
+
+![Coordinate Mapper: drag, resize and rotate collision targets on a normalized 16:9 stream viewport](docs/screenshots/targets.png)
+
+| Throwable Items | Physics & Trajectories | OBS & Server |
+| :---: | :---: | :---: |
+| ![Items view](docs/screenshots/items.png) | ![Physics view](docs/screenshots/physics.png) | ![OBS and server view](docs/screenshots/server.png) |
 
 ---
 
