@@ -4,10 +4,16 @@ Yeet - Qt6 / KDE 6 Automated Test Suite
 
 import os
 import sys
+import tempfile
 import unittest
 
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+# Create an isolated temporary directory for test configuration
+# MUST be set before importing yeet or creating ConfigManager so real user config (~/.config/yeet) is never touched
+_test_tmp_dir = tempfile.TemporaryDirectory()
+os.environ["XDG_CONFIG_HOME"] = _test_tmp_dir.name
 
 # Ensure offscreen Qt platform for headless testing
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -27,6 +33,14 @@ class TestYeetQt(unittest.TestCase):
         cls.cfg = ConfigManager()
         cls.daemon = ServerDaemon(cls.cfg)
         cls.win = YeetWindow(cls.cfg, cls.daemon)
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "daemon") and cls.daemon:
+            cls.daemon.stop()
+        if hasattr(cls, "win") and cls.win:
+            cls.win.close()
+        _test_tmp_dir.cleanup()
 
     def test_window_initialization(self):
         self.assertIsNotNone(self.win)
@@ -53,6 +67,12 @@ class TestYeetQt(unittest.TestCase):
         target, handle = tv.canvas._hit_test(QPointF(new_target.x * w, new_target.y * h), w, h)
         self.assertIsNotNone(target)
 
+        # Clean up added target so tests remain idempotent
+        self.cfg.targets.remove(new_target)
+        self.cfg.save()
+        tv.refresh_from_config()
+        self.assertEqual(len(self.cfg.targets), initial_len)
+
     def test_items_view(self):
         iv = self.win.items_view
         it = iv._get_current_item()
@@ -76,6 +96,47 @@ class TestYeetQt(unittest.TestCase):
 
         sv.wh_enabled_check.setChecked(True)
         self.assertTrue(self.cfg.webhooks.enabled)
+
+    def test_item_ids_api(self):
+        import asyncio
+        from unittest.mock import MagicMock
+        import json
+
+        # Test default comma-separated list
+        req = MagicMock()
+        req.query = {}
+        res = asyncio.run(self.daemon.handle_get_item_ids(req))
+        self.assertEqual(res.status, 200)
+        self.assertEqual(res.content_type, "text/plain")
+        expected_ids = list(self.cfg.items.keys())
+        self.assertEqual(res.text, ", ".join(expected_ids))
+
+        # Test custom separator (e.g. ?sep=,)
+        req_sep = MagicMock()
+        req_sep.query = {"sep": ","}
+        res_sep = asyncio.run(self.daemon.handle_get_item_ids(req_sep))
+        self.assertEqual(res_sep.text, ",".join(expected_ids))
+
+        # Test group filtering (e.g. ?group=food)
+        req_grp = MagicMock()
+        req_grp.query = {"group": "food"}
+        res_grp = asyncio.run(self.daemon.handle_get_item_ids(req_grp))
+        food_ids = [it.id for it in self.cfg.items.values() if it.group == "food"]
+        self.assertEqual(res_grp.text, ", ".join(food_ids))
+
+        # Test JSON format (e.g. ?format=json)
+        req_json = MagicMock()
+        req_json.query = {"format": "json"}
+        res_json = asyncio.run(self.daemon.handle_get_item_ids(req_json))
+        data = json.loads(res_json.body.decode("utf-8"))
+        self.assertEqual(data["ids"], expected_ids)
+        self.assertEqual(data["count"], len(expected_ids))
+
+        # Test handle_get_items with format=csv
+        req_items_csv = MagicMock()
+        req_items_csv.query = {"format": "csv"}
+        res_items_csv = asyncio.run(self.daemon.handle_get_items(req_items_csv))
+        self.assertEqual(res_items_csv.text, ", ".join(expected_ids))
 
     def test_about_dialog(self):
         dialog = AboutDialog(self.win)

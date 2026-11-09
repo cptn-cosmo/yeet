@@ -458,16 +458,28 @@ curl -X POST http://127.0.0.1:49122/api/v1/collisions/reset
 
 ---
 
-### 6. List Throwable Items (`GET /api/v1/items`)
+### 6. List Throwable Items (`GET /api/v1/items` & `GET /api/v1/items/ids`)
 
 Returns all configured items and their physical/audio parameters. Supports optional `?group=<name>` filtering.
 
 ```bash
-# List all items
+# List all items (JSON)
 curl http://127.0.0.1:49122/api/v1/items
 
-# List only summer items
+# List only summer items (JSON)
 curl "http://127.0.0.1:49122/api/v1/items?group=summer"
+
+# Comma-separated list of item IDs (plain text, ideal for chat bots)
+curl http://127.0.0.1:49122/api/v1/items/ids
+# Output: tomato, brick, pie, rubber_duck, water_balloon, heart, beachball
+
+# Custom separator / no space (e.g. sep=,)
+curl "http://127.0.0.1:49122/api/v1/items/ids?sep=,"
+# Output: tomato,brick,pie,rubber_duck,water_balloon,heart,beachball
+
+# Group-filtered item IDs
+curl "http://127.0.0.1:49122/api/v1/items/ids?group=food"
+# Output: tomato, pie
 ```
 
 ---
@@ -724,6 +736,7 @@ Add chat commands using `$(urlfetch)`:
 !throw -> $(urlfetch http://127.0.0.1:49122/api/v1/throw?item=random&amount=2)
 !slap  -> $(urlfetch http://127.0.0.1:49122/api/v1/collision?item=pie)
 !hits  -> Total avatar hits: $(urlfetch http://127.0.0.1:49122/api/v1/collisions)
+!items -> Available items: $(urlfetch http://127.0.0.1:49122/api/v1/items/ids)
 ```
 
 ---

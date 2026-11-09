@@ -937,6 +937,19 @@ curl "http://127.0.0.1:49122/api/v1/collision?target=VTuber+Head&item=pie&sound=
       </div>
     </div>
 
+    <!-- Endpoint: /api/v1/items/ids -->
+    <div class="endpoint" id="api-items-ids">
+      <div class="endpoint-header">
+        <span class="badge-method badge-get">GET</span>
+        <span class="endpoint-path">/api/v1/items/ids</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns a simple comma-separated list of all throwable item IDs in plain text (ideal for stream chat bots). Supports <code>?sep=,</code> to customize delimiter, <code>?group=&lt;name&gt;</code> filtering, and <code>?format=json</code>.</p>
+        <pre><code>curl http://127.0.0.1:49122/api/v1/items/ids
+# Result: tomato, brick, pie, rubber_duck, water_balloon, heart, beachball</code></pre>
+      </div>
+    </div>
+
     <!-- Endpoint: /api/v1/targets -->
     <div class="endpoint" id="api-targets">
       <div class="endpoint-header">
@@ -1011,7 +1024,8 @@ Last Hit URL:  http://127.0.0.1:8001/vts/hotkey?id=Expression_Neutral</code></pr
     <h3>Twitch Channel Points (Chat Commands)</h3>
     <pre><code>!throw -> $(urlfetch http://127.0.0.1:49122/api/v1/throw?item=random&amount=2)
 !slap  -> $(urlfetch http://127.0.0.1:49122/api/v1/collision?item=pie)
-!hits  -> Total avatar hits: $(urlfetch http://127.0.0.1:49122/api/v1/collisions)</code></pre>
+!hits  -> Total avatar hits: $(urlfetch http://127.0.0.1:49122/api/v1/collisions)
+!items -> Available items: $(urlfetch http://127.0.0.1:49122/api/v1/items/ids)</code></pre>
 
     <!-- Section 13: Config JSON -->
     <h2 id="config-json">⚙️ Configuration File (`~/.config/yeet/config.json`)</h2>

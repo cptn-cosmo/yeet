@@ -349,12 +349,46 @@ class ServerDaemon:
         return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
     async def handle_get_items(self, request: web.Request) -> web.Response:
+        fmt = request.query.get("format", "").strip().lower()
+        if fmt in ["csv", "ids", "text", "plain", "list"]:
+            return await self.handle_get_item_ids(request)
+
         group_filter = request.query.get("group")
         items_list = [item.to_dict() for item in self.config_manager.items.values()]
         if group_filter:
             gf = group_filter.strip().lower()
             items_list = [it for it in items_list if it.get("group", "").lower() == gf]
         return web.json_response({"items": items_list}, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_get_item_ids(self, request: web.Request) -> web.Response:
+        """Returns a comma-separated list of all throwable item IDs (or JSON if requested)."""
+        group_filter = request.query.get("group")
+        items = list(self.config_manager.items.values())
+        if group_filter:
+            gf = group_filter.strip().lower()
+            items = [it for it in items if getattr(it, "group", "").lower() == gf]
+
+        item_ids = [it.id for it in items]
+
+        # Determine separator: ?sep=, or ?separator=, or ?space=false
+        sep = request.query.get("sep", request.query.get("separator"))
+        if sep is None:
+            sep = "," if request.query.get("space", "true").lower() in ["false", "0", "no"] else ", "
+
+        fmt = request.query.get("format", "").strip().lower()
+        if fmt == "json":
+            return web.json_response({
+                "ids": item_ids,
+                "csv": sep.join(item_ids),
+                "count": len(item_ids)
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
+        return web.Response(
+            text=sep.join(item_ids),
+            content_type="text/plain",
+            charset="utf-8",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
 
     async def handle_get_targets(self, request: web.Request) -> web.Response:
         targets_list = [t.to_dict() for t in self.config_manager.targets]
@@ -805,6 +839,10 @@ class ServerDaemon:
         app.router.add_post("/api/v1/webhooks/test", self.handle_test_webhook)
 
         app.router.add_get("/api/v1/items", self.handle_get_items)
+        app.router.add_get("/api/v1/items/ids", self.handle_get_item_ids)
+        app.router.add_get("/api/v1/items/csv", self.handle_get_item_ids)
+        app.router.add_get("/api/v1/items/list", self.handle_get_item_ids)
+        app.router.add_get("/items/ids", self.handle_get_item_ids)
         app.router.add_get("/api/v1/targets", self.handle_get_targets)
         app.router.add_post("/api/v1/targets", self.handle_post_targets)
         app.router.add_get("/api/v1/status", self.handle_status)

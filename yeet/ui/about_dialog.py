@@ -79,7 +79,7 @@ class AboutDialog(QtWidgets.QDialog):
         links_form = QtWidgets.QFormLayout()
         links_form.setSpacing(8)
 
-        gh_link = QtWidgets.QLabel('<a href="https://github.com/geeks/yeet" style="color: #3daee9;">https://github.com/geeks/yeet</a>')
+        gh_link = QtWidgets.QLabel('<a href="https://github.com/cptn-cosmo/yeet" style="color: #3daee9;">https://github.com/cptn-cosmo/yeet</a>')
         gh_link.setOpenExternalLinks(True)
         links_form.addRow("<b>Homepage:</b>", gh_link)
 
@@ -88,7 +88,7 @@ class AboutDialog(QtWidgets.QDialog):
         docs_link.setOpenExternalLinks(True)
         links_form.addRow("<b>Documentation:</b>", docs_link)
 
-        issues_link = QtWidgets.QLabel('<a href="https://github.com/geeks/yeet/issues" style="color: #3daee9;">https://github.com/geeks/yeet/issues</a>')
+        issues_link = QtWidgets.QLabel('<a href="https://github.com/cptn-cosmo/yeet/issues" style="color: #3daee9;">https://github.com/cptn-cosmo/yeet/issues</a>')
         issues_link.setOpenExternalLinks(True)
         links_form.addRow("<b>Bug Tracker:</b>", issues_link)
 

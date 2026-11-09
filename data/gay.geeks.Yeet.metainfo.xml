@@ -28,8 +28,8 @@
     </ul>
   </description>
   <launchable type="desktop-id">gay.geeks.Yeet.desktop</launchable>
-  <url type="homepage">https://github.com/geeks/yeet</url>
-  <url type="bugtracker">https://github.com/geeks/yeet/issues</url>
+  <url type="homepage">https://github.com/cptn-cosmo/yeet</url>
+  <url type="bugtracker">https://github.com/cptn-cosmo/yeet/issues</url>
   <screenshots>
     <screenshot type="default">
       <caption>Target setup and coordinate mapper in Yeet</caption>
