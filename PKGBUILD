@@ -31,7 +31,7 @@ build() {
 }
 
 check() {
-    meson test -C build --print-errorlogs
+    PYTHONDONTWRITEBYTECODE=1 meson test -C build --print-errorlogs
 }
 
 package() {
